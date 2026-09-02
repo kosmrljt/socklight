@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.pyz
+
+# pip install artifacts
+*.egg-info/
+dist/
+build/
+
+# user data — not part of the project
+rules/
+logs/
+marks.log
+*.log
+
+# runtime exports
+*.action
+*.conf.snippet
+*.pac

@@ -1,0 +1,592 @@
+# sockLight — SOCKS5 Dev Proxy — Connection Categories
+# ==========================================
+#
+# Categories are checked in ORDER — first match wins.
+# Put more-specific categories BEFORE broad catch-alls.
+#
+# Each category:
+#   color       Rich/Textual colour name shown in the TUI
+#   abbrev      3–5 char label shown in the connection table
+#   description Short human-readable explanation
+#   block       true = block by default at startup (can toggle in TUI)
+#   geo_hint    Two-letter country code shown in the Categories panel
+#   patterns    List of fnmatch hostname patterns (* matches any string)
+#
+# TUI commands:
+#   block   <name>    block all connections in this category
+#   unblock <name>    allow them again
+#   cats              list all categories with current status
+#
+# To add your own categories: append a new [categories.mycat] section.
+# -----------------------------------------------------------------------
+
+# ---- High-concern tracking ----
+
+[categories.advertising]
+color       = "red"
+abbrev      = "ADV"
+description = "Advertising networks and programmatic ad platforms"
+block       = false
+patterns = [
+    "*.doubleclick.net",
+    "doubleclick.net",
+    "*.googlesyndication.com",
+    "googlesyndication.com",
+    "*.googleadservices.com",
+    "googleadservices.com",
+    "pagead2.googlesyndication.com",
+    "*.adnxs.com",
+    "adnxs.com",
+    "*.criteo.com",
+    "*.criteo.net",
+    "criteo.com",
+    "criteo.net",
+    "*.outbrain.com",
+    "outbrain.com",
+    "*.taboola.com",
+    "taboola.com",
+    "*.advertising.com",
+    "advertising.com",
+    "*.moatads.com",
+    "moatads.com",
+    "*.rubiconproject.com",
+    "rubiconproject.com",
+    "*.pubmatic.com",
+    "pubmatic.com",
+    "*.openx.net",
+    "*.openx.com",
+    "*.sharethrough.com",
+    "sharethrough.com",
+    "*.adsrvr.org",
+    "adsrvr.org",
+    "*.casalemedia.com",
+    "casalemedia.com",
+    "*.contextweb.com",
+    "*.turn.com",
+    "*.indexexchange.com",
+    "*.sovrn.com",
+    "*.lijit.com",
+    "*.bidswitch.net",
+    "bidswitch.net",
+    "*.33across.com",
+    "*.tapad.com",
+    "*.adroll.com",
+    "adroll.com",
+    "*.media.net",
+    "media.net",
+    "*.conversantmedia.com",
+    "*.exponential.com",
+    "*.tribalfusion.com",
+    "*.undertone.com",
+    "*.richaudience.com",
+    "*.smartadserver.com",
+    "*.smaato.com",
+    "*.appnexus.com",
+    "appnexus.com",
+    "*.spotxchange.com",
+    "*.yieldbot.com",
+    "*.tremorhub.com",
+    "*.primis.tech",
+]
+
+[categories.social_tracking]
+color       = "magenta"
+abbrev      = "SOC"
+description = "Social network tracking pixels, share buttons, and retargeting"
+block       = false
+patterns = [
+    "connect.facebook.net",
+    "*.facebook.net",
+    "pixel.facebook.com",
+    "graph.facebook.com",
+    "analytics.twitter.com",
+    "ads.twitter.com",
+    "t.co",
+    "snap.licdn.com",
+    "px.ads.linkedin.com",
+    "ads.linkedin.com",
+    "platform.linkedin.com",
+    "ct.pinterest.com",
+    "tr.pinterest.com",
+    "analytics.pinterest.com",
+    "trk.pinterest.com",
+    "*.pinterest.com",
+    "s.pinimg.com",
+    "platform.instagram.com",
+    "sc-static.net",
+    "*.sc-cdn.net",
+    "tr.snapchat.com",
+]
+
+[categories.analytics]
+color       = "yellow"
+abbrev      = "ANA"
+description = "Web analytics, user behaviour tracking, and session recording"
+block       = false
+patterns = [
+    "google-analytics.com",
+    "*.google-analytics.com",
+    "ssl.google-analytics.com",
+    "googletagmanager.com",
+    "*.googletagmanager.com",
+    "hotjar.com",
+    "*.hotjar.com",
+    "static.hotjar.com",
+    "script.hotjar.com",
+    "mixpanel.com",
+    "*.mixpanel.com",
+    "amplitude.com",
+    "*.amplitude.com",
+    "api.amplitude.com",
+    "*.segment.io",
+    "*.segment.com",
+    "cdn.segment.com",
+    "api.segment.io",
+    "heap.io",
+    "*.heap.io",
+    "heapanalytics.com",
+    "*.heapanalytics.com",
+    "clarity.ms",
+    "*.clarity.ms",
+    "scorecardresearch.com",
+    "*.scorecardresearch.com",
+    "quantserve.com",
+    "*.quantserve.com",
+    "chartbeat.com",
+    "*.chartbeat.com",
+    "fullstory.com",
+    "*.fullstory.com",
+    "rs.fullstory.com",
+    "mouseflow.com",
+    "*.mouseflow.com",
+    "logrocket.com",
+    "*.logrocket.com",
+    "luckyorange.com",
+    "*.luckyorange.com",
+    "crazyegg.com",
+    "*.crazyegg.com",
+    "inspectlet.com",
+    "*.inspectlet.com",
+    "contentsquare.com",
+    "*.contentsquare.com",
+    "piwik.pro",
+    "*.piwik.pro",
+    "matomo.org",
+    "nr-data.net",
+    "*.nr-data.net",
+    "newrelic.com",
+    "*.newrelic.com",
+    "js-agent.newrelic.com",
+    "bam.nr-data.net",
+    "datadoghq.com",
+    "*.datadoghq.com",
+    "sentry.io",
+    "*.sentry.io",
+    "ingest.sentry.io",
+    "bugsnag.com",
+    "*.bugsnag.com",
+    "notify.bugsnag.com",
+    "woopra.com",
+    "*.woopra.com",
+    "kissmetrics.com",
+    "*.kissmetrics.com",
+    "intercomcdn.com",
+    "*.intercomcdn.com",
+    "*.intercom.io",
+    "*.customer.io",
+    "*.moengage.com",
+    "*.clevertap.com",
+    "app.adjust.com",
+    "*.adjust.com",
+    "*.appsflyer.com",
+    "*.branch.io",
+    "*.kochava.com",
+]
+
+[categories.telemetry]
+color       = "orange3"
+abbrev      = "TEL"
+description = "Browser and OS telemetry, URL-bar suggestions, update checks"
+block       = false
+patterns = [
+    # Google / Chrome
+    "safebrowsing.google.com",
+    "safebrowsing.googleapis.com",
+    "suggestqueries.google.com",
+    "suggestqueries-clients6.google.com",
+    "clients1.google.com",
+    "clients2.google.com",
+    "clients3.google.com",
+    "clients4.google.com",
+    "update.googleapis.com",
+    "clientservices.googleapis.com",
+    "ssl.gstatic.com",
+    "ocsp.pki.goog",
+    "crl.pki.goog",
+    # Firefox / Mozilla
+    "telemetry.mozilla.org",
+    "firefox.settings.services.mozilla.com",
+    "location.services.mozilla.com",
+    "push.services.mozilla.com",
+    "snippets.cdn.mozilla.net",
+    "normandy.cdn.mozilla.net",
+    "normandy-cdn.services.mozilla.com",
+    "aus5.mozilla.org",
+    "aus4.mozilla.org",
+    "services.mozilla.com",
+    "incoming.telemetry.mozilla.org",
+    "detectportal.firefox.com",
+    "firefox-settings-attachments.cdn.mozilla.net",
+    "contile.services.mozilla.com",
+    "merino.services.mozilla.com",
+    # Windows / Microsoft
+    "settings-win.data.microsoft.com",
+    "v10.events.data.microsoft.com",
+    "v20.events.data.microsoft.com",
+    "browser.events.data.microsoft.com",
+    "*.update.microsoft.com",
+    "*.windowsupdate.com",
+    "dl.delivery.mp.microsoft.com",
+    # macOS / Apple
+    "mesu.apple.com",
+    "gdmf.apple.com",
+    "xp.apple.com",
+    "swscan.apple.com",
+    "swcdn.apple.com",
+    "swdist.apple.com",
+]
+
+# ---- Geo-suspicious (outside GDPR jurisdiction) ----
+
+[categories.suspicious_cn]
+color       = "red3"
+abbrev      = "CN!"
+description = "Chinese tech companies — data processed outside EU/GDPR jurisdiction"
+geo_hint    = "CN"
+block       = false
+patterns = [
+    # Baidu
+    "baidu.com",
+    "*.baidu.com",
+    "*.baidu.cn",
+    "*.bdstatic.com",
+    "*.bcebos.com",
+    # Alibaba / Alipay / Aliyun
+    "alibaba.com",
+    "*.alibaba.com",
+    "*.alicdn.com",
+    "*.alipay.com",
+    "*.alipayobjects.com",
+    "*.aliyun.com",
+    "*.aliyuncs.com",
+    "*.taobao.com",
+    "*.tmall.com",
+    "*.alibabacloud.com",
+    # Tencent / QQ / WeChat
+    "qq.com",
+    "*.qq.com",
+    "*.tencent.com",
+    "*.tencentcs.com",
+    "*.wechat.com",
+    "*.weixin.qq.com",
+    "*.myqcloud.com",
+    "*.qpic.cn",
+    # ByteDance / TikTok / Douyin
+    "*.bytedance.com",
+    "*.byteimg.com",
+    "*.bytetcdn.com",
+    "*.tiktok.com",
+    "*.tiktokv.com",
+    "*.tiktokcdn.com",
+    "*.tiktokd.com",
+    "*.snssdk.com",
+    "*.musical.ly",
+    "*.ibyteimg.com",
+    # Huawei
+    "*.huawei.com",
+    "*.hicloud.com",
+    "*.hwccloud.com",
+    "*.hihonorcloud.com",
+    # Xiaomi / MIUI
+    "*.xiaomi.com",
+    "*.miui.com",
+    "*.mi.com",
+    "*.xiaomi.eu",
+    # NetEase
+    "*.163.com",
+    "*.netease.com",
+    "*.126.net",
+    # Sina / Weibo
+    "*.sina.com.cn",
+    "*.sina.com",
+    "*.weibo.com",
+    "*.sinaimg.cn",
+    # Video / Social
+    "*.bilibili.com",
+    "*.biligame.com",
+    "*.youku.com",
+    "*.iqiyi.com",
+    "*.iqiyipic.com",
+    "*.sohu.com",
+    "*.jd.com",
+    "*.jd.hk",
+    "*.pinduoduo.com",
+    "*.meituan.com",
+    "*.dianping.com",
+    # Qihoo 360
+    "*.360.cn",
+    "*.qihoo.com",
+    "*.360safe.com",
+    "*.so.com",
+    # Kuaishou
+    "*.kuaishou.com",
+    "*.ksapisrv.com",
+    "*.gifshow.com",
+]
+
+[categories.suspicious_ru]
+color       = "red"
+abbrev      = "RU!"
+description = "Russian internet companies — outside EU data protection jurisdiction"
+geo_hint    = "RU"
+block       = false
+patterns = [
+    # Yandex
+    "yandex.ru",
+    "*.yandex.ru",
+    "yandex.com",
+    "*.yandex.com",
+    "*.yandex.net",
+    "*.yandex.ua",
+    "*.yandex.kz",
+    "*.yandex.by",
+    "ya.ru",
+    "*.ya.ru",
+    "*.yastatic.net",
+    "*.yadro.ru",
+    # Mail.ru / VK / OK
+    "mail.ru",
+    "*.mail.ru",
+    "vk.com",
+    "*.vk.com",
+    "*.vkontakte.ru",
+    "*.vk.me",
+    "*.vkuser.net",
+    "ok.ru",
+    "*.ok.ru",
+    "*.odnoklassniki.ru",
+    "*.mycdn.me",
+    # Rambler / Livejournal
+    "*.rambler.ru",
+    "*.livejournal.com",
+    "*.lj.ru",
+    # Kaspersky (security software — some consider data sharing policy opaque)
+    "*.kaspersky.com",
+    "*.kaspersky-labs.com",
+    # Dr.Web
+    "*.drweb.com",
+    "*.drweb.ru",
+]
+
+# ---- Payments (generally trusted, low concern) ----
+
+[categories.payment]
+color       = "green"
+abbrev      = "PAY"
+description = "Payment processors — generally trusted, but sensitive traffic"
+block       = false
+patterns = [
+    "stripe.com", "*.stripe.com",
+    "*.stripe.network",
+    "*.stripecdn.com",
+    "paypal.com", "*.paypal.com",
+    "*.paypalobjects.com",
+    "braintreegateway.com", "*.braintreegateway.com",
+    "*.braintree-api.com",
+    "adyen.com", "*.adyen.com",
+    "klarna.com", "*.klarna.com",
+    "*.klarnaservices.com",
+    "square.com", "*.square.com",
+    "squareup.com", "*.squareup.com",
+    "checkout.com", "*.checkout.com",
+    "*.cko.io",
+    "worldpay.com", "*.worldpay.com",
+    "mollie.com", "*.mollie.com",
+    "recurly.com", "*.recurly.com",
+    "zuora.com", "*.zuora.com",
+    "paddle.com", "*.paddle.com",
+    "fastspring.com", "*.fastspring.com",
+    "gocardless.com", "*.gocardless.com",
+    "*.paysafe.com",
+    "authorize.net", "*.authorize.net",
+]
+
+# ---- Infrastructure (low concern) ----
+
+[categories.fonts]
+color       = "blue"
+abbrev      = "FNT"
+description = "Web font services — downloads typefaces for page rendering"
+block       = false
+patterns = [
+    "fonts.googleapis.com",
+    "fonts.gstatic.com",
+    "use.typekit.net",
+    "*.typekit.com",
+    "*.typekit.net",
+    "use.fontawesome.com",
+    "*.fontawesome.com",
+    "ka-f.fontawesome.com",
+    "fonts.bunny.net",
+    "*.bunny.net",
+    "fonts.adobe.com",
+    "use.edgefonts.net",
+]
+
+[categories.cdn]
+color       = "cyan"
+abbrev      = "CDN"
+description = "Content delivery networks — edge caches for static assets"
+block       = false
+patterns = [
+    # Cloudflare
+    "*.cloudflare.com",
+    "*.cloudflare.net",
+    "*.cloudflareinsights.com",
+    "*.cfcdn.net",
+    "*.cf-ipfs.com",
+    # Fastly
+    "*.fastly.net",
+    "*.fastlylb.net",
+    "*.fastlycdn.net",
+    # Akamai
+    "*.akamaihd.net",
+    "*.akamaized.net",
+    "*.akamai.net",
+    "*.akamaitechnologies.com",
+    "*.akamaiedge.net",
+    "*.edgesuite.net",
+    "*.edgekey.net",
+    # AWS CloudFront / S3
+    "*.cloudfront.net",
+    "*.amazonaws.com",
+    "*.s3.amazonaws.com",
+    # Azure CDN
+    "*.azureedge.net",
+    "*.azurefd.net",
+    "*.msecnd.net",
+    "*.cdn.microsoft.com",
+    # jsDelivr
+    "*.jsdelivr.net",
+    "cdn.jsdelivr.net",
+    # unpkg
+    "*.unpkg.com",
+    "unpkg.com",
+    # Bootstrap CDN
+    "*.bootstrapcdn.com",
+    "maxcdn.bootstrapcdn.com",
+    # Cloudinary / Imgix
+    "*.cloudinary.com",
+    "*.imgix.net",
+    # Bunny CDN (main)
+    "*.b-cdn.net",
+    # KeyCDN / Stackpath
+    "*.kxcdn.com",
+    "*.stackpathcdn.com",
+    # Supabase CDN
+    "*.supabase.co",
+]
+
+# ---- US Big Tech (informational catch-all) ----
+# This is listed LAST so more-specific categories above take priority.
+# e.g. fonts.googleapis.com → fonts, doubleclick.net → advertising.
+
+[categories.us_bigtech]
+color       = "bright_blue"
+abbrev      = "BIG"
+description = "US big tech platforms — Google, Meta, Amazon, Microsoft, Apple"
+geo_hint    = "US"
+block       = false
+patterns = [
+    # Google (general — analytics/ads/telemetry caught above)
+    "google.com",
+    "*.google.com",
+    "*.google.ad", "*.google.ae", "*.google.at", "*.google.au",
+    "*.google.be", "*.google.bg", "*.google.ba", "*.google.br",
+    "*.google.ca", "*.google.ch", "*.google.cl", "*.google.cn",
+    "*.google.co", "*.google.com.*", "*.google.cz", "*.google.de",
+    "*.google.dk", "*.google.ee", "*.google.es", "*.google.fi",
+    "*.google.fr", "*.google.gr", "*.google.hr", "*.google.hu",
+    "*.google.ie", "*.google.it", "*.google.lt", "*.google.lv",
+    "*.google.mk", "*.google.nl", "*.google.no", "*.google.pl",
+    "*.google.pt", "*.google.ro", "*.google.rs", "*.google.se",
+    "*.google.si", "*.google.sk", "*.google.sk", "*.google.si",
+    "*.googleapis.com",
+    "*.gstatic.com",
+    "*.ggpht.com",
+    "*.googlevideo.com",
+    "*.googleusercontent.com",
+    "*.googlezip.net",
+    "*.1e100.net",
+    # YouTube
+    "youtube.com",
+    "*.youtube.com",
+    "*.ytimg.com",
+    "*.yt3.ggpht.com",
+    "youtu.be",
+    # Meta / Facebook (social tracking caught above)
+    "facebook.com",
+    "*.facebook.com",
+    "*.fbcdn.net",
+    "*.fb.com",
+    "instagram.com",
+    "*.instagram.com",
+    "*.cdninstagram.com",
+    "whatsapp.com",
+    "*.whatsapp.com",
+    "*.whatsapp.net",
+    "messenger.com",
+    "*.messenger.com",
+    # Amazon (CDN caught above)
+    "amazon.com",
+    "*.amazon.com",
+    "*.amazon.*",
+    "*.media-amazon.com",
+    "*.ssl-images-amazon.com",
+    "*.primevideo.com",
+    "*.amazonvideo.com",
+    # Microsoft (CDN/Azure caught above)
+    "microsoft.com",
+    "*.microsoft.com",
+    "*.windows.com",
+    "*.live.com",
+    "*.msn.com",
+    "*.bing.com",
+    "*.office.com",
+    "*.office365.com",
+    "*.sharepoint.com",
+    "*.teams.microsoft.com",
+    "*.azure.com",
+    "*.azurewebsites.net",
+    "*.azurestaticapps.net",
+    "*.github.com",
+    "*.githubusercontent.com",
+    "*.githubassets.com",
+    # Apple (telemetry caught above)
+    "apple.com",
+    "*.apple.com",
+    "*.icloud.com",
+    "*.mzstatic.com",
+    "*.applecdn.net",
+    # Twitter / X
+    "twitter.com",
+    "*.twitter.com",
+    "*.twimg.com",
+    "*.t.co",
+    "x.com",
+    "*.x.com",
+    # LinkedIn (tracking pixels caught above)
+    "linkedin.com",
+    "*.linkedin.com",
+    "*.licdn.com",
+]
