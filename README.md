@@ -41,7 +41,7 @@ pip install git+https://github.com/kosmrljt/socklight.git
 socklight                              # 32 categories loaded automatically
 socklight --rules-file rules/dev.rules # with saved rules
 socklight --categories simple          # 10 broad categories instead
-socklight --categories-file my.toml   # custom category definitions
+socklight --categories-file my.toml    # custom category definitions
 ```
 
 First run without a rules file: type `deny @advertising` → `save` inside the TUI. sockLight creates the rules file on first save.
