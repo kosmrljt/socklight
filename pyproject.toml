@@ -10,18 +10,19 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
-    "anyio[trio]>=4.4",
+    "anyio>=4.4",
     "textual>=0.70",
+    "uvloop>=0.19; sys_platform == 'linux'",
 ]
 
 [project.scripts]
-socklight = "proxy.cli:main"
+socklight = "socklight.cli:main"
 
 [project.urls]
 Repository = "https://github.com/kosmrljt/socklight"
 
 [tool.setuptools.packages.find]
-include = ["proxy*"]
+include = ["socklight*"]
 
 [tool.setuptools.package-data]
-proxy = ["data/*.toml"]
+socklight = ["data/*.toml"]

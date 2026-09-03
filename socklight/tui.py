@@ -70,11 +70,11 @@ from textual.widgets import (
 )
 from textual.widget import Widget
 
-from proxy.classifier import Classifier
-from proxy.filters import FilterEngine, FilterMode, RuleKind
-from proxy.server import ProxyServer
-from proxy.throttle import ThrottleEngine, format_speed, parse_throttle_args
-from proxy.tracker import ConnectionTracker, ConnectionStatus, format_bytes
+from socklight.classifier import Classifier
+from socklight.filters import FilterEngine, FilterMode, RuleKind
+from socklight.server import ProxyServer
+from socklight.throttle import ThrottleEngine, format_speed, parse_throttle_args
+from socklight.tracker import ConnectionTracker, ConnectionStatus, format_bytes
 
 
 # ---------------------------------------------------------------------------
@@ -407,7 +407,7 @@ def _build_cats_markup(cats: list) -> str:
         name_text = markup_escape(f"{cat.name:<24}")
         # geo_hint as dim plain text — avoid [XX] being parsed as Rich markup tag
         geo = f" [dim]{markup_escape(cat.geo_hint)}[/]" if cat.geo_hint else ""
-        blk = " [red]● blocked[/]" if cat.block else ""
+        #blk = " [red]● blocked[/]" if cat.block else "" #TODO: review
         desc = f" [dim]{markup_escape(cat.description)}[/]" if cat.description else ""
         lines.append(f"  [{col}]{abbrev_text}[/]  [bold]{name_text}[/]{geo}{blk}{desc}")
     return "\n".join(lines)

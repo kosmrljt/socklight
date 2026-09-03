@@ -1,6 +1,6 @@
 """Tests for proxy/tracker.py — all synchronous."""
 import time
-from proxy.tracker import ConnectionRecord, ConnectionStatus, ConnectionTracker, format_bytes
+from socklight.tracker import ConnectionRecord, ConnectionStatus, ConnectionTracker, format_bytes
 
 
 class TestFormatBytes:

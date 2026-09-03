@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""sockLight — SOCKS5 Dev Proxy — development entry point (delegates to proxy.cli)."""
+"""sockLight — SOCKS5 Dev Proxy — development entry point (delegates to socklight.cli)."""
 
-from proxy.cli import main
+from socklight.cli import main
 
 if __name__ == "__main__":
     main()

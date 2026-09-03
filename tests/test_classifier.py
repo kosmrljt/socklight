@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from proxy.classifier import Category, Classifier
+from socklight.classifier import Category, Classifier
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ class TestClassifierLoad:
         assert cats[0].color == "yellow"
         assert cats[0].abbrev == "ANA"
 
-    def test_load_sets_default_blocked_from_file(self, tmp_path):
+    def test_block_field_in_toml_is_ignored(self, tmp_path):
         p = _write_toml(tmp_path, """
             [categories.advertising]
             color = "red"
@@ -68,7 +68,7 @@ class TestClassifierLoad:
         """)
         c = Classifier()
         c.load_file(p)
-        assert c.is_category_blocked("advertising")
+        assert not c.is_category_blocked("advertising")
 
     def test_load_empty_file(self, tmp_path):
         p = _write_toml(tmp_path, "# no categories")

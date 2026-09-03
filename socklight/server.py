@@ -54,17 +54,17 @@ import anyio
 from anyio import BrokenResourceError, ClosedResourceError, EndOfStream
 from anyio.abc import SocketStream
 
-from proxy.socks5 import (
+from socklight.socks5 import (
     negotiate_auth,
     read_connect_request,
     send_reply,
     ReplyStatus,
 )
-from proxy.relay import relay_streams
-from proxy.classifier import Classifier
-from proxy.filters import FilterEngine
-from proxy.throttle import ThrottleEngine, ThrottleState
-from proxy.tracker import ConnectionTracker, ConnectionStatus
+from socklight.relay import relay_streams
+from socklight.classifier import Classifier
+from socklight.filters import FilterEngine
+from socklight.throttle import ThrottleEngine, ThrottleState
+from socklight.tracker import ConnectionTracker, ConnectionStatus
 
 logger = logging.getLogger("proxy.server")
 

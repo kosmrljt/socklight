@@ -1,7 +1,7 @@
 """Tests for proxy/relay.py — async, run with anyio.run()."""
 from __future__ import annotations
 import anyio
-from proxy.relay import relay_streams
+from socklight.relay import relay_streams
 from tests.conftest import MockStream
 
 

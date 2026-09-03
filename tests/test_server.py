@@ -3,10 +3,10 @@ from __future__ import annotations
 import struct
 import anyio
 from anyio import EndOfStream, ClosedResourceError
-from proxy.filters import FilterEngine, FilterMode, RuleKind
-from proxy.server import ProxyServer
-from proxy.tracker import ConnectionTracker
-from proxy.socks5 import ReplyStatus
+from socklight.filters import FilterEngine, FilterMode, RuleKind
+from socklight.server import ProxyServer
+from socklight.tracker import ConnectionTracker
+from socklight.socks5 import ReplyStatus
 from tests.conftest import free_port
 
 

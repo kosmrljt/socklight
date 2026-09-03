@@ -68,7 +68,7 @@ from anyio import BrokenResourceError, ClosedResourceError, EndOfStream
 from anyio.abc import ByteStream
 
 if TYPE_CHECKING:
-    from proxy.throttle import ThrottleState
+    from socklight.throttle import ThrottleState
 
 
 # Type alias for a callback that receives a byte count.

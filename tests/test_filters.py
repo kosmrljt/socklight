@@ -1,7 +1,7 @@
 """Tests for proxy/filters.py — all synchronous."""
 import tempfile
 import os
-from proxy.filters import FilterEngine, FilterMode, FilterRule, RuleKind
+from socklight.filters import FilterEngine, FilterMode, FilterRule, RuleKind
 
 
 class TestFilterRuleParse:

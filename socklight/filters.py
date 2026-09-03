@@ -381,7 +381,7 @@ class FilterEngine:
         The output can be loaded again with ``load_rules_file``.
         Pass *throttle_engine* to also persist throttle rules.
         """
-        from proxy.throttle import ThrottleEngine as _TE  # local import avoids circular
+        from socklight.throttle import ThrottleEngine as _TE  # local import avoids circular
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as fh:

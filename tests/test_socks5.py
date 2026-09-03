@@ -4,7 +4,7 @@ import struct
 import anyio
 import pytest
 from anyio import EndOfStream
-from proxy.socks5 import (
+from socklight.socks5 import (
     AddressType,
     AuthMethod,
     ConnectRequest,

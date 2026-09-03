@@ -52,7 +52,7 @@ def _builtin_categories(name: str) -> str:
     from importlib.resources import files as _pkg_files
 
     fname = "categories-simple.toml" if name == "simple" else "categories-full.toml"
-    return str(_pkg_files("proxy") / "data" / fname)
+    return str(_pkg_files("socklight") / "data" / fname)
 
 
 def main() -> None:
@@ -149,7 +149,7 @@ def main() -> None:
     if args.no_tui:
         _run_headless(args, categories_file)
     else:
-        from proxy.tui import LogLevel, ProxyApp
+        from socklight.tui import LogLevel, ProxyApp
 
         app = ProxyApp(
             proxy_host=args.host,
@@ -170,12 +170,12 @@ def _run_headless(args, categories_file: str | None) -> None:
 
     import anyio
 
-    from proxy.classifier import Classifier
-    from proxy.filters import FilterEngine, FilterMode
-    from proxy.server import ProxyServer
-    from proxy.throttle import ThrottleEngine
-    from proxy.tracker import ConnectionTracker
-    from proxy.tui import LogLevel, _passes_level
+    from socklight.classifier import Classifier
+    from socklight.filters import FilterEngine, FilterMode
+    from socklight.server import ProxyServer
+    from socklight.throttle import ThrottleEngine
+    from socklight.tracker import ConnectionTracker
+    from socklight.tui import LogLevel, _passes_level
 
     log_level = LogLevel(args.log_level)
     log_fh = open(args.log_file, "a", buffering=1) if args.log_file else None
