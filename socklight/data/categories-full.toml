@@ -1,10 +1,35 @@
-# sockLight — SOCKS5 Dev Proxy — Connection Categories (v2)
-# ================================================
+# sockLight — SOCKS5 Dev Proxy — Connection Categories (Neutral / Adequacy Edition)
+# ================================================================================
+#
+# NEUTRALITY MODEL — GDPR adequacy, not country stereotypes
+#   Geographic categories are graded by the EU legal test that already exists,
+#   not by hand-picked "good vs bad" countries.  Article 45 GDPR lets the
+#   European Commission recognise a non-EU country as offering adequate data
+#   protection.  That gives three OBJECTIVE tiers:
+#     • EU/EEA .............. domestic jurisdiction        (low)
+#     • Adequacy ............ Commission adequacy decision  (low)
+#         UK, CH, JP, IL, KR, CA, NZ, AR, UY, and others
+#     • No adequacy ......... processed outside that regime (medium)
+#         US (partial: Data Privacy Framework — see note), CN, RU, and the
+#         jurisdiction_other catch-all for everything else
+#   US and CN carry the SAME severity and the SAME colour on purpose — the
+#   file makes no claim that one is worse than the other.  The only asymmetry
+#   is factual: the US has a (contested) DPF adequacy bridge, noted in-line.
 #
 # MATCHING SEMANTICS — first-match-wins by definition order:
 #   The order of [categories.*] sections in this file MATTERS.
-#   More-specific categories MUST come before broad catch-alls.
-#   The classifier builds a two-level trie (TLD → domain) for fast lookup:
+#   The classifier is strictly first-match-wins (see proxy/classifier.py):
+#   there is NO "most-specific-wins" logic.  Therefore more-specific
+#   categories MUST be listed before broad catch-alls, or the catch-all
+#   swallows them.  Concretely:
+#     • Every functional category (ai_apis_*, fonts, captcha, payment,
+#       video_embed, cdn, cloud_*) MUST come before the jurisdiction_*
+#       catch-alls at the bottom — otherwise e.g. fonts.googleapis.com is
+#       eaten by *.google.com and shown as a US platform, not FNT.
+#     • captcha MUST come before cdn, or challenges.cloudflare.com is eaten
+#       by *.cloudflare.com and shown as CDN instead of CAP.
+#
+# The classifier builds a two-level trie (TLD → domain) for fast lookup:
 #     1. Two dict lookups select a small candidate bucket (~10–20 patterns).
 #     2. Each candidate RE is tested in definition order — first match wins.
 #     3. Patterns with a wildcard in the TLD or second-level label (e.g.
@@ -13,7 +38,7 @@
 #   Examples:
 #     fonts.googleapis.com  -> fonts        (exact before *.googleapis.com)
 #     analytics.tiktok.com  -> social_tracking (exact before *.tiktok.com)
-#     abc.google.com        -> us_bigtech   (*.google.com)
+#     abc.google.com        -> jurisdiction_us (*.google.com catch-all)
 #
 # Each category:
 #   color       Rich/Textual colour name shown in the TUI
@@ -30,42 +55,27 @@
 #   cats                     list all categories with current status
 #
 # To add your own categories: append a new [categories.mycat] section.
-# -----------------------------------------------------------------------
+# --------------------------------------------------------------------------------
 
 # =======================================================================
-# HIGH SEVERITY — invasive tracking & profiling
+# HIGH SEVERITY — invasive tracking & profiling (behaviour, not geography)
 # =======================================================================
-
 [categories.fingerprinting]
 color       = "red1"
 abbrev      = "FPR"
 description = "Device fingerprinting & bot-detection — identifies you without cookies"
 severity    = "high"
 patterns = [
-    "fingerprint.com",
-    "*.fingerprint.com",
-    "fpjs.io",
-    "*.fpjs.io",
-    "api.fpjs.io",
-    "*.fptls.com",
-    "*.perimeterx.net",
-    "*.px-cdn.net",
-    "*.px-cloud.net",
-    "*.pxchk.net",
-    "*.humansecurity.com",
-    "*.datadome.co",
-    "captcha-delivery.com",
-    "*.captcha-delivery.com",
-    "*.castle.io",
-    "*.siftscience.com",
-    "*.sift.com",
-    "cdn.sift.com",
-    "*.forter.com",
-    "*.riskified.com",
-    "*.seon.io",
-    "*.iovation.com",
-    "*.threatmetrix.com",
-    "*.online-metrix.net",
+    # FingerprintJS
+    "fingerprint.com", "*.fingerprint.com", "fpjs.io", "*.fpjs.io", "api.fpjs.io",
+    # PerimeterX (HUMAN Security)
+    "*.fptls.com", "*.perimeterx.net", "*.px-cdn.net", "*.px-cloud.net", "*.pxchk.net", "*.humansecurity.com",
+    # DataDome
+    "*.datadome.co", "captcha-delivery.com", "*.captcha-delivery.com",
+    # Castle / Sift / Forter / Riskified
+    "*.castle.io", "*.siftscience.com", "*.sift.com", "cdn.sift.com", "*.forter.com", "*.riskified.com",
+    # Seon / Iovation / ThreatMetrix
+    "*.seon.io", "*.iovation.com", "*.threatmetrix.com", "*.online-metrix.net"
 ]
 
 [categories.session_recording]
@@ -74,39 +84,28 @@ abbrev      = "REC"
 description = "Session replay — records mouse movement, scrolling and keystrokes"
 severity    = "high"
 patterns = [
-    "hotjar.com",
-    "*.hotjar.com",
-    "static.hotjar.com",
-    "script.hotjar.com",
-    "*.hotjar.io",
-    "fullstory.com",
-    "*.fullstory.com",
-    "rs.fullstory.com",
-    "mouseflow.com",
-    "*.mouseflow.com",
-    "logrocket.com",
-    "*.logrocket.com",
-    "*.logrocket.io",
-    "*.lr-ingest.io",
-    "*.lr-in.com",
-    "luckyorange.com",
-    "*.luckyorange.com",
-    "*.luckyorange.net",
-    "crazyegg.com",
-    "*.crazyegg.com",
-    "inspectlet.com",
-    "*.inspectlet.com",
-    "contentsquare.com",
-    "*.contentsquare.com",
-    "*.contentsquare.net",
-    "clarity.ms",
-    "*.clarity.ms",
-    "smartlook.com",
-    "*.smartlook.com",
-    "*.smartlook.cloud",
-    "*.quantummetric.com",
-    "*.sessioncam.com",
-    "*.glassboxdigital.io",
+    # Hotjar
+    "hotjar.com", "*.hotjar.com", "static.hotjar.com", "script.hotjar.com", "*.hotjar.io",
+    # FullStory
+    "fullstory.com", "*.fullstory.com", "rs.fullstory.com",
+    # Mouseflow
+    "mouseflow.com", "*.mouseflow.com",
+    # LogRocket
+    "logrocket.com", "*.logrocket.com", "*.logrocket.io", "*.lr-ingest.io", "*.lr-in.com",
+    # Lucky Orange
+    "luckyorange.com", "*.luckyorange.com", "*.luckyorange.net",
+    # CrazyEgg
+    "crazyegg.com", "*.crazyegg.com",
+    # Inspectlet
+    "inspectlet.com", "*.inspectlet.com",
+    # Contentsquare
+    "contentsquare.com", "*.contentsquare.com", "*.contentsquare.net",
+    # Microsoft Clarity
+    "clarity.ms", "*.clarity.ms",
+    # Smartlook
+    "smartlook.com", "*.smartlook.com", "*.smartlook.cloud",
+    # Quantum Metric / SessionCam / Glassbox
+    "*.quantummetric.com", "*.sessioncam.com", "*.glassboxdigital.io"
 ]
 
 [categories.adtech_rtb]
@@ -116,68 +115,23 @@ description = "Real-time bidding exchanges & identity graphs — cross-site prof
 severity    = "high"
 patterns = [
     # SSP / ad exchanges
-    "*.rubiconproject.com",
-    "rubiconproject.com",
-    "*.pubmatic.com",
-    "pubmatic.com",
-    "*.openx.net",
-    "*.openx.com",
-    "*.casalemedia.com",
-    "casalemedia.com",
-    "*.indexexchange.com",
-    "*.contextweb.com",
-    "*.sovrn.com",
-    "*.lijit.com",
-    "*.bidswitch.net",
-    "bidswitch.net",
-    "*.adsrvr.org",
-    "adsrvr.org",
-    "*.turn.com",
-    "*.mathtag.com",
-    "*.spotxchange.com",
-    "*.yieldlab.net",
-    "*.adform.net",
-    "*.improvedigital.com",
-    "*.360yield.com",
+    "*.rubiconproject.com", "rubiconproject.com", # Magnite
+    "*.pubmatic.com", "pubmatic.com",
+    "*.openx.net", "*.openx.com",
+    "*.casalemedia.com", "casalemedia.com", # Index Exchange
+    "*.indexexchange.com", "*.contextweb.com",
+    "*.sovrn.com", "*.lijit.com",
+    "*.bidswitch.net", "bidswitch.net",
+    "*.adsrvr.org", "adsrvr.org", # The Trade Desk
+    "*.turn.com", "*.mathtag.com", "*.spotxchange.com", "*.yieldlab.net",
+    "*.adform.net", "*.improvedigital.com", "*.360yield.com",
     # Identity graphs / data brokers
-    "*.liveramp.com",
-    "*.rlcdn.com",
-    "*.id5-sync.com",
-    "id5-sync.com",
-    "*.tapad.com",
-    "*.33across.com",
-    "*.agkn.com",
-    "*.demdex.net",
-    "*.everesttech.net",
-    "*.crwdcntrl.net",
-    "*.bluekai.com",
-    "*.addthis.com",
-    "*.eyeota.net",
-    "*.adsymptotic.com",
-]
-
-[categories.data_brokers]
-color       = "deep_pink4"
-abbrev      = "BRK"
-description = "US data brokers — buy/sell consumer profiles, formally beyond GDPR reach"
-severity    = "high"
-geo_hint    = "US"
-patterns = [
-    "*.acxiom.com",
-    "acxiom.com",
-    "*.epsilon.com",
-    "*.dotomi.com",
-    "*.experian.com",          # marketing services arm; also credit portal
-    "*.lexisnexis.com",
-    "*.lexisnexisrisk.com",
-    "*.transunion.com",
-    "*.signal.co",
-    "*.neustar.biz",
-    "*.zetaglobal.com",
-    "*.rezync.com",
-    "*.throtle.io",
-    "*.merkleinc.com",
-    "*.rkdms.com",
+    "*.liveramp.com", "*.rlcdn.com",
+    "*.id5-sync.com", "id5-sync.com",
+    "*.tapad.com", "*.33across.com", "*.agkn.com",
+    "*.demdex.net", "*.everesttech.net", # Adobe Audience Manager
+    "*.crwdcntrl.net", "*.bluekai.com", # Oracle Data Cloud
+    "*.addthis.com", "*.eyeota.net", "*.adsymptotic.com"
 ]
 
 [categories.advertising]
@@ -186,50 +140,25 @@ abbrev      = "ADV"
 description = "Advertising networks and ad serving"
 severity    = "high"
 patterns = [
-    "*.doubleclick.net",
-    "doubleclick.net",
-    "*.googlesyndication.com",
-    "googlesyndication.com",
-    "*.googleadservices.com",
-    "googleadservices.com",
-    "pagead2.googlesyndication.com",
-    "*.adnxs.com",
-    "adnxs.com",
-    "*.appnexus.com",
-    "appnexus.com",
-    "*.criteo.com",
-    "*.criteo.net",
-    "criteo.com",
-    "criteo.net",
-    "*.outbrain.com",
-    "outbrain.com",
-    "*.taboola.com",
-    "taboola.com",
-    "*.advertising.com",
-    "advertising.com",
-    "*.moatads.com",
-    "moatads.com",
-    "*.adsafeprotected.com",
-    "*.doubleverify.com",
-    "*.sharethrough.com",
-    "sharethrough.com",
-    "*.adroll.com",
-    "adroll.com",
-    "*.media.net",
-    "media.net",
-    "*.amazon-adsystem.com",
-    "amazon-adsystem.com",
-    "*.teads.tv",
-    "*.smartadserver.com",
-    "*.smaato.com",
-    "*.conversantmedia.com",
-    "*.exponential.com",
-    "*.tribalfusion.com",
-    "*.undertone.com",
-    "*.richaudience.com",
-    "*.yieldbot.com",
-    "*.tremorhub.com",
-    "*.primis.tech",
+    # Google ads
+    "*.doubleclick.net", "doubleclick.net",
+    "*.googlesyndication.com", "googlesyndication.com", "pagead2.googlesyndication.com",
+    "*.googleadservices.com", "googleadservices.com",
+    # AppNexus / Xandr
+    "*.adnxs.com", "adnxs.com", "*.appnexus.com", "appnexus.com",
+    # Criteo
+    "*.criteo.com", "*.criteo.net", "criteo.com", "criteo.net",
+    # Native / content ads
+    "*.outbrain.com", "outbrain.com", "*.taboola.com", "taboola.com",
+    # Verification / viewability
+    "*.advertising.com", "advertising.com", "*.moatads.com", "moatads.com",
+    "*.adsafeprotected.com", "*.doubleverify.com",
+    # Retargeting / exchanges
+    "*.sharethrough.com", "sharethrough.com", "*.adroll.com", "adroll.com",
+    "*.media.net", "media.net", "*.amazon-adsystem.com", "amazon-adsystem.com",
+    "*.teads.tv", "*.smartadserver.com", "*.smaato.com", "*.conversantmedia.com",
+    "*.exponential.com", "*.tribalfusion.com", "*.undertone.com", "*.richaudience.com",
+    "*.yieldbot.com", "*.tremorhub.com", "*.primis.tech"
 ]
 
 [categories.social_tracking]
@@ -238,97 +167,78 @@ abbrev      = "SOC"
 description = "Social network tracking pixels, share buttons, and retargeting"
 severity    = "high"
 patterns = [
-    # Meta
-    "connect.facebook.net",
-    "*.facebook.net",
-    "pixel.facebook.com",
-    "graph.facebook.com",
+    # Meta / Facebook
+    "connect.facebook.net", "*.facebook.net", "pixel.facebook.com", "graph.facebook.com",
     "platform.instagram.com",
-    # Twitter / X
-    "analytics.twitter.com",
-    "ads.twitter.com",
-    "static.ads-twitter.com",
-    "ads-api.twitter.com",
-    "t.co",
-    "*.t.co",
+    # X / Twitter
+    "analytics.twitter.com", "ads.twitter.com", "static.ads-twitter.com", "ads-api.twitter.com", "t.co", "*.t.co",
     # LinkedIn
-    "snap.licdn.com",
-    "px.ads.linkedin.com",
-    "ads.linkedin.com",
-    "platform.linkedin.com",
+    "snap.licdn.com", "px.ads.linkedin.com", "ads.linkedin.com", "platform.linkedin.com",
     # Pinterest
-    "ct.pinterest.com",
-    "tr.pinterest.com",
-    "analytics.pinterest.com",
-    "trk.pinterest.com",
-    "*.pinterest.com",
-    "s.pinimg.com",
+    "ct.pinterest.com", "tr.pinterest.com", "analytics.pinterest.com", "trk.pinterest.com", "*.pinterest.com", "s.pinimg.com",
     # Snapchat
-    "sc-static.net",
-    "*.sc-cdn.net",
-    "tr.snapchat.com",
-    # TikTok pixel (exact hosts — beat *.tiktok.com in suspicious_cn)
-    "analytics.tiktok.com",
-    "analytics-sg.tiktok.com",
-    "business-api.tiktok.com",
+    "sc-static.net", "*.sc-cdn.net", "tr.snapchat.com",
+    # TikTok (business/tracking endpoints only — general TikTok is jurisdiction_cn)
+    "analytics.tiktok.com", "analytics-sg.tiktok.com", "business-api.tiktok.com",
     # Reddit
-    "ads.reddit.com",
-    "events.reddit.com",
-    "alb.reddit.com",
+    "ads.reddit.com", "events.reddit.com", "alb.reddit.com"
+]
+
+[categories.data_brokers]
+color       = "deep_pink4"
+abbrev      = "BRK"
+description = "Data brokers — buy/sell consumer profiles, largely outside GDPR reach"
+severity    = "high"
+patterns = [
+    "*.acxiom.com", "acxiom.com", "*.epsilon.com", "*.dotomi.com",
+    "*.experian.com", "*.lexisnexis.com", "*.lexisnexisrisk.com", "*.transunion.com",
+    "*.signal.co", "*.neustar.biz", "*.zetaglobal.com", "*.rezync.com",
+    "*.throtle.io", "*.merkleinc.com", "*.rkdms.com"
+]
+
+[categories.iot_tv_telemetry]
+color       = "hot_pink3"
+abbrev      = "TV!"
+description = "Smart-TV & IoT telemetry — ACR watches what's on your screen"
+severity    = "high"
+patterns = [
+    # Samsung TV
+    "*.samsungcloudsolution.com", "*.samsungcloudsolution.net", "*.samsungacr.com",
+    "*.samsungads.com", "*.samsungotn.net", "*.samsungrm.net",
+    # LG TV
+    "*.lgtvsdp.com", "*.lgappstv.com", "*.lgsmartad.com", "*.lgtvcommon.com",
+    # Inscape / Vizio / Roku
+    "*.inscape.tv", "*.vizio.com", "*.roku.com", "*.rokutime.com",
+    # Amazon devices
+    "device-metrics-us.amazon.com", "device-metrics-us-2.amazon.com"
 ]
 
 # =======================================================================
-# MEDIUM SEVERITY — analytics, marketing & app telemetry
+# MEDIUM SEVERITY — analytics, telemetry & marketing infrastructure
 # =======================================================================
-
 [categories.analytics]
 color       = "yellow"
 abbrev      = "ANA"
 description = "Web analytics and user behaviour statistics"
 severity    = "medium"
 patterns = [
-    "google-analytics.com",
-    "*.google-analytics.com",
-    "ssl.google-analytics.com",
-    "app-measurement.com",
-    "*.app-measurement.com",
-    "mixpanel.com",
-    "*.mixpanel.com",
-    "amplitude.com",
-    "*.amplitude.com",
-    "api.amplitude.com",
-    "*.segment.io",
-    "*.segment.com",
-    "cdn.segment.com",
-    "api.segment.io",
-    "heap.io",
-    "*.heap.io",
-    "heapanalytics.com",
-    "*.heapanalytics.com",
-    "*.posthog.com",
-    "us.i.posthog.com",
-    "eu.i.posthog.com",
-    "plausible.io",
-    "*.plausible.io",
-    "matomo.org",
-    "*.matomo.cloud",
-    "piwik.pro",
-    "*.piwik.pro",
-    "scorecardresearch.com",
-    "*.scorecardresearch.com",
-    "quantserve.com",
-    "*.quantserve.com",
-    "chartbeat.com",
-    "*.chartbeat.com",
-    "*.parsely.com",
-    "statcounter.com",
-    "*.statcounter.com",
-    "woopra.com",
-    "*.woopra.com",
-    "kissmetrics.com",
-    "*.kissmetrics.com",
-    "*.snowplowanalytics.com",
-    "*.vercel-insights.com",
+    # Google Analytics
+    "google-analytics.com", "*.google-analytics.com", "ssl.google-analytics.com", "app-measurement.com", "*.app-measurement.com",
+    # Mixpanel / Amplitude
+    "mixpanel.com", "*.mixpanel.com", "amplitude.com", "*.amplitude.com", "api.amplitude.com",
+    # Segment
+    "*.segment.io", "*.segment.com", "cdn.segment.com", "api.segment.io",
+    # Heap
+    "heap.io", "*.heap.io", "heapanalytics.com", "*.heapanalytics.com",
+    # PostHog
+    "*.posthog.com", "us.i.posthog.com", "eu.i.posthog.com",
+    # Privacy-friendly analytics
+    "plausible.io", "*.plausible.io", "matomo.org", "*.matomo.cloud", "piwik.pro", "*.piwik.pro",
+    # Stats / Chartbeat
+    "scorecardresearch.com", "*.scorecardresearch.com", "quantserve.com", "*.quantserve.com", "chartbeat.com", "*.chartbeat.com",
+    # Others
+    "*.parsely.com", "statcounter.com", "*.statcounter.com", "woopra.com", "*.woopra.com", "kissmetrics.com", "*.kissmetrics.com",
+    "*.snowplowanalytics.com", "*.vercel-insights.com"
 ]
 
 [categories.tag_managers]
@@ -337,16 +247,10 @@ abbrev      = "TAG"
 description = "Tag managers — gateways that load other trackers dynamically"
 severity    = "medium"
 patterns = [
-    "googletagmanager.com",
-    "*.googletagmanager.com",
-    "*.googletagservices.com",
-    "*.tiqcdn.com",
-    "*.tealiumiq.com",
-    "assets.adobedtm.com",
-    "*.adobedtm.com",
-    "*.ensighten.com",
-    "*.tagcommander.com",
-    "*.commander1.com",
+    "googletagmanager.com", "*.googletagmanager.com", "*.googletagservices.com",
+    "*.tiqcdn.com", "*.tealiumiq.com",
+    "assets.adobedtm.com", "*.adobedtm.com",
+    "*.ensighten.com", "*.tagcommander.com", "*.commander1.com"
 ]
 
 [categories.mobile_attribution]
@@ -355,16 +259,10 @@ abbrev      = "ATT"
 description = "Mobile app install attribution SDKs — report in-app behaviour"
 severity    = "medium"
 patterns = [
-    "app.adjust.com",
-    "*.adjust.com",
-    "*.adjust.io",
-    "*.appsflyer.com",
-    "*.appsflyersdk.com",
-    "*.branch.io",
-    "*.app.link",
-    "*.kochava.com",
-    "*.singular.net",
-    "*.sng.link",
+    "app.adjust.com", "*.adjust.com", "*.adjust.io",
+    "*.appsflyer.com", "*.appsflyersdk.com",
+    "*.branch.io", "*.app.link",
+    "*.kochava.com", "*.singular.net", "*.sng.link"
 ]
 
 [categories.push_marketing]
@@ -373,28 +271,13 @@ abbrev      = "MKT"
 description = "Marketing automation & push platforms — sync behavioural profiles"
 severity    = "medium"
 patterns = [
-    "onesignal.com",
-    "*.onesignal.com",
-    "*.braze.com",
-    "*.braze.eu",
-    "*.appboy.com",
-    "*.clevertap.com",
-    "*.clevertap-prod.com",
-    "*.moengage.com",
-    "*.customer.io",
-    "track.customer.io",
-    "*.iterable.com",
-    "*.urbanairship.com",
-    "*.airship.com",
-    "*.klaviyo.com",
-    "static.klaviyo.com",
-    # HubSpot tracking
-    "js.hs-scripts.com",
-    "*.hs-scripts.com",
-    "*.hs-analytics.net",
-    "*.hs-banner.com",
-    "track.hubspot.com",
-    "*.hubspot.com",
+    "onesignal.com", "*.onesignal.com",
+    "*.braze.com", "*.braze.eu", "*.appboy.com",
+    "*.clevertap.com", "*.clevertap-prod.com",
+    "*.moengage.com", "*.customer.io", "track.customer.io",
+    "*.iterable.com", "*.urbanairship.com", "*.airship.com",
+    "*.klaviyo.com", "static.klaviyo.com",
+    "js.hs-scripts.com", "*.hs-scripts.com", "*.hs-analytics.net", "*.hs-banner.com", "track.hubspot.com", "*.hubspot.com"
 ]
 
 [categories.chat_support]
@@ -403,22 +286,11 @@ abbrev      = "CHT"
 description = "Support/chat widgets — also collect visitor & behaviour data"
 severity    = "medium"
 patterns = [
-    "*.intercom.io",
-    "intercomcdn.com",
-    "*.intercomcdn.com",
-    "*.zendesk.com",
-    "*.zdassets.com",
-    "*.zopim.com",
-    "tawk.to",
-    "*.tawk.to",
-    "crisp.chat",
-    "*.crisp.chat",
-    "*.drift.com",
-    "*.driftt.com",
-    "*.livechatinc.com",
-    "*.helpscout.net",
-    "*.freshchat.com",
-    "*.freshworks.com",
+    "*.intercom.io", "intercomcdn.com", "*.intercomcdn.com",
+    "*.zendesk.com", "*.zdassets.com", "*.zopim.com",
+    "tawk.to", "*.tawk.to", "crisp.chat", "*.crisp.chat",
+    "*.drift.com", "*.driftt.com", "*.livechatinc.com",
+    "*.helpscout.net", "*.freshchat.com", "*.freshworks.com"
 ]
 
 [categories.telemetry_browser]
@@ -428,76 +300,42 @@ description = "Browser telemetry, URL-bar suggestions, safe-browsing, experiment
 severity    = "medium"
 patterns = [
     # Google / Chrome
-    "safebrowsing.google.com",
-    "safebrowsing.googleapis.com",
-    "suggestqueries.google.com",
-    "suggestqueries-clients6.google.com",
-    "clients1.google.com",
-    "clients2.google.com",
-    "clients3.google.com",
-    "clients4.google.com",
-    "update.googleapis.com",
-    "clientservices.googleapis.com",
-    "ocsp.pki.goog",
-    "crl.pki.goog",
+    "safebrowsing.google.com", "safebrowsing.googleapis.com",
+    "suggestqueries.google.com", "suggestqueries-clients6.google.com",
+    "clients1.google.com", "clients2.google.com", "clients3.google.com", "clients4.google.com",
+    "update.googleapis.com", "clientservices.googleapis.com",
+    "ocsp.pki.goog", "crl.pki.goog",
     # Firefox / Mozilla
-    "telemetry.mozilla.org",
-    "incoming.telemetry.mozilla.org",
-    "firefox.settings.services.mozilla.com",
-    "location.services.mozilla.com",
-    "push.services.mozilla.com",
-    "snippets.cdn.mozilla.net",
-    "normandy.cdn.mozilla.net",
-    "normandy-cdn.services.mozilla.com",
-    "aus5.mozilla.org",
-    "aus4.mozilla.org",
-    "services.mozilla.com",
-    "detectportal.firefox.com",
-    "firefox-settings-attachments.cdn.mozilla.net",
-    "contile.services.mozilla.com",
-    "merino.services.mozilla.com",
+    "telemetry.mozilla.org", "incoming.telemetry.mozilla.org",
+    "firefox.settings.services.mozilla.com", "location.services.mozilla.com",
+    "push.services.mozilla.com", "snippets.cdn.mozilla.net",
+    "normandy.cdn.mozilla.net", "normandy-cdn.services.mozilla.com",
+    "aus5.mozilla.org", "aus4.mozilla.org", "services.mozilla.com",
+    "detectportal.firefox.com", "firefox-settings-attachments.cdn.mozilla.net",
+    "contile.services.mozilla.com", "merino.services.mozilla.com",
     # Edge
-    "browser.events.data.microsoft.com",
-    "edge.microsoft.com",
-    "config.edge.skype.com",
-    "*.smartscreen.microsoft.com",
+    "browser.events.data.microsoft.com", "edge.microsoft.com", "config.edge.skype.com", "*.smartscreen.microsoft.com",
     # Brave
-    "p3a.brave.com",
-    "star-randsrv.bsg.brave.com",
-    "variations.brave.com",
+    "p3a.brave.com", "star-randsrv.bsg.brave.com", "variations.brave.com",
     # Opera
-    "autoupdate.geo.opera.com",
+    "autoupdate.geo.opera.com"
 ]
 
+# =======================================================================
+# LOW SEVERITY — often-legitimate infrastructure (blocking may break apps)
+# =======================================================================
 [categories.crash_reporting]
 color       = "tan"
 abbrev      = "CRS"
 description = "Crash/error reporting & APM — often legitimate, blocking may break apps"
 severity    = "low"
 patterns = [
-    "sentry.io",
-    "*.sentry.io",
-    "ingest.sentry.io",
-    "bugsnag.com",
-    "*.bugsnag.com",
-    "notify.bugsnag.com",
-    "nr-data.net",
-    "*.nr-data.net",
-    "bam.nr-data.net",
-    "newrelic.com",
-    "*.newrelic.com",
-    "js-agent.newrelic.com",
-    "datadoghq.com",
-    "*.datadoghq.com",
-    "*.datadoghq.eu",
-    "*.browser-intake-datadoghq.com",
-    "rollbar.com",
-    "*.rollbar.com",
-    "*.raygun.io",
-    "*.raygun.com",
-    "*.instabug.com",
-    "*.crashlytics.com",
-    "crashlytics.com",
+    "sentry.io", "*.sentry.io", "ingest.sentry.io",
+    "bugsnag.com", "*.bugsnag.com", "notify.bugsnag.com",
+    "nr-data.net", "*.nr-data.net", "bam.nr-data.net", "newrelic.com", "*.newrelic.com", "js-agent.newrelic.com",
+    "datadoghq.com", "*.datadoghq.com", "*.datadoghq.eu", "*.browser-intake-datadoghq.com",
+    "rollbar.com", "*.rollbar.com", "*.raygun.io", "*.raygun.com",
+    "*.instabug.com", "*.crashlytics.com", "crashlytics.com"
 ]
 
 [categories.consent_cmp]
@@ -506,500 +344,172 @@ abbrev      = "CMP"
 description = "Cookie-consent platforms — ironically, they phone home too"
 severity    = "low"
 patterns = [
-    "*.onetrust.com",
-    "cdn.cookielaw.org",
-    "*.cookielaw.org",
-    "consent.cookiebot.com",
-    "*.cookiebot.com",
-    "cmp.quantcast.com",
-    "*.usercentrics.eu",
-    "app.usercentrics.eu",
-    "*.sp-prod.net",
-    "*.sourcepoint.com",
-    "*.didomi.io",
-    "sdk.privacy-center.org",
-    "*.trustarc.com",
-    "consent.trustarc.com",
-    "*.iubenda.com",
+    "*.onetrust.com", "cdn.cookielaw.org", "*.cookielaw.org",
+    "consent.cookiebot.com", "*.cookiebot.com",
+    "cmp.quantcast.com", "*.usercentrics.eu", "app.usercentrics.eu",
+    "*.sp-prod.net", "*.sourcepoint.com", "*.didomi.io",
+    "sdk.privacy-center.org", "*.trustarc.com", "consent.trustarc.com", "*.iubenda.com"
 ]
 
 # =======================================================================
 # OS TELEMETRY & UPDATES
+#   NOTE: blocking OS *updates* is generally NOT advised — you lose security
+#   patches.  Kept at low severity precisely so a broad "deny high/medium"
+#   sweep does not silently break patching.  Block deliberately if at all.
 # =======================================================================
-
 [categories.telemetry_os]
 color       = "dark_goldenrod"
 abbrev      = "TLO"
-description = "OS telemetry and system update checks (blocking updates not advised)"
+description = "OS telemetry & update checks — blocking updates is not advised"
 severity    = "low"
 patterns = [
     # Windows / Microsoft
-    "settings-win.data.microsoft.com",
-    "v10.events.data.microsoft.com",
-    "v20.events.data.microsoft.com",
-    "*.events.data.microsoft.com",
-    "watson.telemetry.microsoft.com",
-    "*.telemetry.microsoft.com",
-    "*.update.microsoft.com",
-    "*.windowsupdate.com",
-    "dl.delivery.mp.microsoft.com",
-    # macOS / iOS / Apple
-    "mesu.apple.com",
-    "gdmf.apple.com",
-    "xp.apple.com",
-    "swscan.apple.com",
-    "swcdn.apple.com",
-    "swdist.apple.com",
-]
-
-[categories.iot_tv_telemetry]
-color       = "hot_pink3"
-abbrev      = "TV!"
-description = "Smart-TV & IoT telemetry — ACR watches what's on your screen"
-severity    = "high"
-patterns = [
-    # Samsung TV (ACR = automatic content recognition, plus own ad network)
-    "*.samsungcloudsolution.com",
-    "*.samsungcloudsolution.net",
-    "*.samsungacr.com",
-    "*.samsungads.com",
-    "*.samsungotn.net",
-    "*.samsungrm.net",
-    # LG TV
-    "*.lgtvsdp.com",
-    "*.lgappstv.com",
-    "*.lgsmartad.com",
-    "*.lgtvcommon.com",
-    # Vizio (Inscape ACR)
-    "*.inscape.tv",
-    "*.vizio.com",
-    # Roku
-    "*.roku.com",
-    "*.rokutime.com",
-    # Amazon Fire TV device metrics (exact — beat *.amazon.com in us_bigtech)
-    "device-metrics-us.amazon.com",
-    "device-metrics-us-2.amazon.com",
+    "settings-win.data.microsoft.com", "v10.events.data.microsoft.com", "v20.events.data.microsoft.com",
+    "*.events.data.microsoft.com", "watson.telemetry.microsoft.com", "*.telemetry.microsoft.com",
+    "*.update.microsoft.com", "*.windowsupdate.com", "dl.delivery.mp.microsoft.com",
+    # Apple
+    "mesu.apple.com", "gdmf.apple.com", "xp.apple.com",
+    "swscan.apple.com", "swcdn.apple.com", "swdist.apple.com",
+    # Linux distro repos (containers/VMs) — blocking wastes rebuild time, not privacy
+    "*.fedoraproject.org", "dl.fedoraproject.org", "download.fedoraproject.org", "mirrors.fedoraproject.org",
+    "*.rpmfusion.org", "mirrors.rpmfusion.org", "download1.rpmfusion.org",
+    "*.archive.ubuntu.com", "security.ubuntu.com", "deb.debian.org", "*.centos.org"
 ]
 
 # =======================================================================
-# GEO — data processed outside EU/GDPR jurisdiction
+# AI SERVICE APIs — graded by GDPR adequacy of the provider's jurisdiction
+#   Shows which app talks to which AI provider and under which legal regime.
+#   MUST precede the jurisdiction_* catch-alls (a Gemini/Copilot endpoint is
+#   otherwise eaten by *.google.com / *.microsoft.com and mislabelled).
 # =======================================================================
-
-[categories.suspicious_cn]
-color       = "red3"
-abbrev      = "CN!"
-description = "Chinese tech companies — data processed outside EU/GDPR jurisdiction"
-severity    = "high"
-geo_hint    = "CN"
-patterns = [
-    # Baidu
-    "baidu.com",
-    "*.baidu.com",
-    "*.baidu.cn",
-    "*.bdstatic.com",
-    # Alibaba / Alipay / Aliyun / AliExpress
-    "alibaba.com",
-    "*.alibaba.com",
-    "*.alicdn.com",
-    "*.alipay.com",
-    "*.alipayobjects.com",
-    "*.aliyun.com",
-    "*.taobao.com",
-    "*.tmall.com",
-    "*.alibabacloud.com",
-    "*.aliexpress.com",
-    "aliexpress.com",
-    # Tencent / QQ / WeChat
-    "qq.com",
-    "*.qq.com",
-    "*.tencent.com",
-    "*.tencentcs.com",
-    "*.wechat.com",
-    "*.weixin.qq.com",
-    "*.qpic.cn",
-    # ByteDance / TikTok / Douyin
-    "*.bytedance.com",
-    "*.byteimg.com",
-    "*.bytetcdn.com",
-    "*.tiktok.com",
-    "*.tiktokv.com",
-    "*.tiktokcdn.com",
-    "*.tiktokd.com",
-    "*.snssdk.com",
-    "*.musical.ly",
-    "*.ibyteimg.com",
-    # Huawei
-    "*.huawei.com",
-    "*.hicloud.com",
-    "*.hwccloud.com",
-    "*.hihonorcloud.com",
-    # Xiaomi / MIUI
-    "*.xiaomi.com",
-    "*.miui.com",
-    "*.mi.com",
-    "*.xiaomi.eu",
-    # Oppo / OnePlus / Realme (HeyTap ecosystem)
-    "*.heytap.com",
-    "*.heytapmobi.com",
-    "*.oppomobile.com",
-    "*.coloros.com",
-    "*.oneplus.com",
-    "*.oneplus.net",
-    "*.realme.com",
-    # Vivo
-    "*.vivo.com",
-    "*.vivo.com.cn",
-    "*.vivoglobal.com",
-    # Lenovo
-    "*.lenovo.com",
-    "*.lenovomm.com",
-    # NetEase
-    "*.163.com",
-    "*.netease.com",
-    "*.126.net",
-    # Sina / Weibo
-    "*.sina.com.cn",
-    "*.sina.com",
-    "*.weibo.com",
-    "*.sinaimg.cn",
-    # Video / Social / Shopping
-    "*.bilibili.com",
-    "*.biligame.com",
-    "*.youku.com",
-    "*.iqiyi.com",
-    "*.iqiyipic.com",
-    "*.sohu.com",
-    "*.jd.com",
-    "*.jd.hk",
-    "*.pinduoduo.com",
-    "*.temu.com",
-    "*.kwcdn.com",
-    "*.shein.com",
-    "*.ltwebstatic.com",
-    "*.meituan.com",
-    "*.dianping.com",
-    # Qihoo 360
-    "*.360.cn",
-    "*.qihoo.com",
-    "*.360safe.com",
-    "*.so.com",
-    # Kuaishou
-    "*.kuaishou.com",
-    "*.ksapisrv.com",
-    "*.gifshow.com",
-    # DJI
-    "*.dji.com",
-    "*.djicdn.com",
-    # UC Browser
-    "*.ucweb.com",
-]
-
-[categories.suspicious_ru]
-color       = "red3"
-abbrev      = "RU!"
-description = "Russian internet companies — outside EU data protection jurisdiction"
-severity    = "high"
-geo_hint    = "RU"
-patterns = [
-    # Yandex
-    "yandex.ru",
-    "*.yandex.ru",
-    "yandex.com",
-    "*.yandex.com",
-    "*.yandex.net",
-    "*.yandex.ua",
-    "*.yandex.kz",
-    "*.yandex.by",
-    "ya.ru",
-    "*.ya.ru",
-    "*.yastatic.net",
-    "*.yadro.ru",
-    # Mail.ru / VK / OK
-    "mail.ru",
-    "*.mail.ru",
-    "vk.com",
-    "*.vk.com",
-    "*.vkontakte.ru",
-    "*.vk.me",
-    "*.vkuser.net",
-    "ok.ru",
-    "*.ok.ru",
-    "*.odnoklassniki.ru",
-    "*.mycdn.me",
-    # Rambler / Livejournal
-    "*.rambler.ru",
-    "*.livejournal.com",
-    "*.lj.ru",
-    # 2GIS
-    "*.2gis.ru",
-    "*.2gis.com",
-    # Sber
-    "*.sber.ru",
-    "*.sberbank.ru",
-    "*.sbercloud.ru",
-    # RuStore
-    "*.rustore.ru",
-    # Kaspersky (security software — data sharing policy considered opaque)
-    "*.kaspersky.com",
-    "*.kaspersky-labs.com",
-    # Dr.Web
-    "*.drweb.com",
-    "*.drweb.ru",
-]
-
-[categories.suspicious_kr]
-color       = "orange_red1"
-abbrev      = "KR!"
-description = "Korean tech companies — data processed outside EU/GDPR jurisdiction"
-severity    = "medium"
-geo_hint    = "KR"
-patterns = [
-    # Samsung (general; TV-specific ACR domains are in iot_tv_telemetry)
-    "samsung.com",
-    "*.samsung.com",
-    "*.samsungcloud.com",
-    "*.samsungqbe.com",
-    "*.samsungosp.com",
-    "*.samsungapps.com",
-    # Naver
-    "naver.com",
-    "*.naver.com",
-    "*.navercorp.com",
-    "*.pstatic.net",
-    # Kakao / Daum
-    "*.kakao.com",
-    "*.kakaocdn.net",
-    "*.daum.net",
-    "*.daumcdn.net",
-    # LG (general; TV domains in iot_tv_telemetry)
-    "*.lg.com",
-    "*.lge.com",
-    # Coupang
-    "*.coupang.com",
-    # Line
-    "*.line.me",
-    "*.line-scdn.net",
-]
-
-# =======================================================================
-# AI SERVICES — split by jurisdiction; shows which app talks to which
-# AI provider and under which legal regime the data is processed.
-# (Note: JP and IL both hold an EU adequacy decision for data protection.)
-# =======================================================================
-
-[categories.ai_apis_us]
-color       = "spring_green3"
-abbrev      = "AIUS"
-description = "US AI service APIs — CLOUD Act jurisdiction"
-severity    = "medium"
-geo_hint    = "US"
-patterns = [
-    # OpenAI / ChatGPT
-    "api.openai.com",
-    "*.openai.com",
-    "chatgpt.com",
-    "*.chatgpt.com",
-    "*.oaistatic.com",
-    "*.oaiusercontent.com",
-    # Anthropic / Claude
-    "api.anthropic.com",
-    "*.anthropic.com",
-    "claude.ai",
-    "*.claude.ai",
-    # Google AI
-    "generativelanguage.googleapis.com",
-    "aiplatform.googleapis.com",
-    "gemini.google.com",
-    # GitHub Copilot
-    "api.githubcopilot.com",
-    "*.githubcopilot.com",
-    "copilot-proxy.githubusercontent.com",
-    # Microsoft Copilot / Azure OpenAI
-    # (note: Azure OpenAI *deployments* can live in EU regions, but the
-    #  provider is US — CLOUD Act applies regardless of region)
-    "copilot.microsoft.com",
-    "*.copilot.microsoft.com",
-    "sydney.bing.com",
-    "*.openai.azure.com",
-    "*.cognitiveservices.azure.com",
-    "*.services.ai.azure.com",
-    # xAI / Grok
-    "api.x.ai",
-    # Perplexity
-    "*.perplexity.ai",
-    # Groq
-    "*.groq.com",
-    # Cohere (HQ Canada — PIPEDA, EU adequacy)
-    "api.cohere.com",
-    "*.cohere.ai",
-    # Together / Fireworks / Replicate (inference hosting)
-    "*.together.ai",
-    "api.together.xyz",
-    "*.fireworks.ai",
-    "*.replicate.com",
-    "api.replicate.com",
-    # OpenRouter (aggregator — routes to MANY providers, incl. CN-hosted!)
-    "openrouter.ai",
-    "*.openrouter.ai",
-    # Hugging Face (HQ New York)
-    "huggingface.co",
-    "*.huggingface.co",
-    "*.hf.co",
-    # Ollama (US — model registry pulls + version checks)
-    "ollama.com",
-    "*.ollama.com",
-    "registry.ollama.ai",
-    "*.ollama.ai",
-]
-
 [categories.ai_apis_eu]
 color       = "green3"
 abbrev      = "AIEU"
-description = "European AI service APIs — GDPR jurisdiction"
+description = "AI APIs in EU/EEA — GDPR home jurisdiction"
 severity    = "low"
 geo_hint    = "EU"
 patterns = [
     # Mistral (FR)
-    "api.mistral.ai",
-    "*.mistral.ai",
-    "chat.mistral.ai",
+    "api.mistral.ai", "*.mistral.ai", "chat.mistral.ai",
     # Aleph Alpha (DE)
-    "*.aleph-alpha.com",
-    "api.aleph-alpha.com",
+    "*.aleph-alpha.com", "api.aleph-alpha.com",
     # Black Forest Labs / FLUX (DE)
-    "*.bfl.ai",
-    "*.bfl.ml",
-    # Stability AI (UK)
-    "*.stability.ai",
-    "api.stability.ai",
+    "*.bfl.ai", "*.bfl.ml",
     # DeepL (DE)
-    "deepl.com",
-    "*.deepl.com",
-    "api.deepl.com",
+    "deepl.com", "*.deepl.com", "api.deepl.com"
 ]
 
-[categories.ai_apis_jp]
+[categories.ai_apis_adequacy]
 color       = "light_sea_green"
-abbrev      = "AIJP"
-description = "Japanese AI providers — JP holds EU adequacy decision"
+abbrev      = "AIAD"
+description = "AI APIs in adequacy countries (UK/CH/JP/IL/KR…) — Art. 45 GDPR adequacy"
 severity    = "low"
-geo_hint    = "JP"
+geo_hint    = "AD"
 patterns = [
-    # Sakana AI
-    "sakana.ai",
-    "*.sakana.ai",
-    # Preferred Networks / PLaMo
-    "*.preferred.jp",
-    "*.plamo.jp",
+    # Stability AI (UK — UK GDPR + adequacy)
+    "*.stability.ai", "api.stability.ai",
+    # Japan (adequacy decision)
+    "sakana.ai", "*.sakana.ai", "*.preferred.jp", "*.plamo.jp",
+    # Israel (adequacy decision)
+    "ai21.com", "*.ai21.com", "api.ai21.com"
 ]
 
-[categories.ai_apis_il]
-color       = "turquoise2"
-abbrev      = "AIIL"
-description = "Israeli AI providers — IL holds EU adequacy decision"
-severity    = "low"
-geo_hint    = "IL"
+[categories.ai_apis_us]
+color       = "orange3"
+abbrev      = "AIUS"
+description = "AI APIs in the US — CLOUD Act; partial adequacy via Data Privacy Framework"
+severity    = "medium"
+geo_hint    = "US"
 patterns = [
-    # AI21 Labs (Jamba)
-    "ai21.com",
-    "*.ai21.com",
-    "api.ai21.com",
+    # OpenAI / ChatGPT
+    "api.openai.com", "*.openai.com", "chatgpt.com", "*.chatgpt.com", "*.oaistatic.com", "*.oaiusercontent.com",
+    # Anthropic / Claude
+    "api.anthropic.com", "*.anthropic.com", "claude.ai", "*.claude.ai",
+    # Google AI
+    "generativelanguage.googleapis.com", "aiplatform.googleapis.com", "gemini.google.com",
+    # GitHub Copilot
+    "api.githubcopilot.com", "*.githubcopilot.com", "copilot-proxy.githubusercontent.com",
+    # Microsoft Copilot / Azure OpenAI
+    "copilot.microsoft.com", "*.copilot.microsoft.com", "sydney.bing.com",
+    "*.openai.azure.com", "*.cognitiveservices.azure.com", "*.services.ai.azure.com",
+    # xAI / Grok
+    "api.x.ai",
+    # Perplexity / Groq / Cohere
+    "*.perplexity.ai", "*.groq.com", "api.cohere.com", "*.cohere.ai",
+    # Together / Fireworks / Replicate (Inference hosting)
+    "*.together.ai", "api.together.xyz", "*.fireworks.ai", "*.replicate.com", "api.replicate.com",
+    # OpenRouter (Aggregator)
+    "openrouter.ai", "*.openrouter.ai",
+    # Hugging Face (Model hub)
+    "huggingface.co", "*.huggingface.co", "*.hf.co",
+    # Ollama (Model registry)
+    "ollama.com", "*.ollama.com", "registry.ollama.ai", "*.ollama.ai"
 ]
 
 [categories.ai_apis_cn]
-color       = "red1"
+color       = "orange3"
 abbrev      = "AICN"
-description = "Chinese LLM APIs — prompts/data processed under Chinese jurisdiction"
-severity    = "high"
+description = "AI APIs in China — PIPL/DSL; no GDPR adequacy decision"
+severity    = "medium"
 geo_hint    = "CN"
 patterns = [
     # DeepSeek
-    "*.deepseek.com",
-    "api.deepseek.com",
-    "chat.deepseek.com",
-    # Alibaba Qwen / DashScope (exact — beat *.aliyuncs.com in cloud_cn)
-    "dashscope.aliyuncs.com",
-    "dashscope-intl.aliyuncs.com",
-    "*.qwen.ai",
-    "chat.qwen.ai",
+    "*.deepseek.com", "api.deepseek.com", "chat.deepseek.com",
+    # Alibaba Qwen / DashScope / Bailian
+    "dashscope.aliyuncs.com", "dashscope-intl.aliyuncs.com", "*.qwen.ai", "chat.qwen.ai",
+    "bailian.aliyun.com", "*.bailian.aliyun.com",
     # Moonshot / Kimi
-    "*.moonshot.cn",
-    "api.moonshot.cn",
-    "kimi.moonshot.cn",
-    "*.kimi.com",
-    # Zhipu / GLM
-    "*.bigmodel.cn",
-    "open.bigmodel.cn",
-    "*.chatglm.cn",
-    "chatglm.cn",
-    # Baidu ERNIE / Qianfan (exact — beat *.baidubce.com in cloud_cn)
-    "aip.baidubce.com",
-    "qianfan.baidubce.com",
+    "*.moonshot.cn", "api.moonshot.cn", "kimi.moonshot.cn", "*.kimi.com",
+    # Zhipu / GLM / Z.ai
+    "*.bigmodel.cn", "open.bigmodel.cn", "*.chatglm.cn", "chatglm.cn", "z.ai", "*.z.ai", "chat.z.ai",
+    # Baidu ERNIE / Qianfan
+    "aip.baidubce.com", "qianfan.baidubce.com",
     # ByteDance Doubao / Volcano Ark
     "ark.cn-beijing.volces.com",
-    # Tencent Hunyuan (exact — beats *.tencentcloudapi.com in cloud_cn)
-    "hunyuan.tencentcloudapi.com",
+    # Tencent Hunyuan / LKE
+    "hunyuan.tencentcloudapi.com", "lkeap.cloud.tencent.com",
     # MiniMax
-    "*.minimax.chat",
-    "api.minimax.chat",
-    "*.minimaxi.com",
+    "*.minimax.chat", "api.minimax.chat", "*.minimaxi.com",
     # Baichuan
-    "*.baichuan-ai.com",
-    "api.baichuan-ai.com",
+    "*.baichuan-ai.com", "api.baichuan-ai.com",
     # 01.AI / Yi
-    "*.lingyiwanwu.com",
-    "api.lingyiwanwu.com",
-    "*.01.ai",
+    "*.lingyiwanwu.com", "api.lingyiwanwu.com", "*.01.ai",
     # StepFun
-    "*.stepfun.com",
-    "api.stepfun.com",
-    # ModelScope (model hub — the Chinese Hugging Face)
-    "modelscope.cn",
-    "*.modelscope.cn",
+    "*.stepfun.com", "api.stepfun.com",
+    # SiliconFlow
+    "siliconflow.cn", "*.siliconflow.cn", "api.siliconflow.cn",
+    # iFlytek (Spark)
+    "*.xf-yun.com", "spark-api.xf-yun.com",
+    # SenseTime (SenseNova)
+    "*.sensenova.cn", "api.sensenova.cn",
+    # Shanghai AI Lab (InternLM)
+    "*.intern-ai.org.cn", "internlm-chat.intern-ai.org.cn",
+    # ModelScope
+    "modelscope.cn", "*.modelscope.cn"
 ]
 
 # =======================================================================
-# LOW SEVERITY — infrastructure & functional services
+# FUNCTIONAL SERVICES — needed for pages to work.  All MUST precede the
+# jurisdiction_* catch-alls so provider-owned functional endpoints
+# (Google Fonts, Cloudflare Turnstile, Google/Apple Pay) are labelled by
+# function, not by the parent company's flag.
 # =======================================================================
-
-[categories.payment]
-color       = "green"
-abbrev      = "PAY"
-description = "Payment processors — generally trusted, but sensitive traffic"
+[categories.fonts]
+color       = "cornflower_blue"
+abbrev      = "FNT"
+description = "Web font services — downloads typefaces for page rendering"
 severity    = "low"
 patterns = [
-    "stripe.com", "*.stripe.com",
-    "*.stripe.network",
-    "*.stripecdn.com",
-    "paypal.com", "*.paypal.com",
-    "*.paypalobjects.com",
-    "braintreegateway.com", "*.braintreegateway.com",
-    "*.braintree-api.com",
-    "adyen.com", "*.adyen.com",
-    "klarna.com", "*.klarna.com",
-    "*.klarnaservices.com",
-    "square.com", "*.square.com",
-    "squareup.com", "*.squareup.com",
-    "checkout.com", "*.checkout.com",
-    "*.cko.io",
-    "worldpay.com", "*.worldpay.com",
-    "mollie.com", "*.mollie.com",
-    "recurly.com", "*.recurly.com",
-    "zuora.com", "*.zuora.com",
-    "paddle.com", "*.paddle.com",
-    "fastspring.com", "*.fastspring.com",
-    "gocardless.com", "*.gocardless.com",
-    "*.paysafe.com",
-    "authorize.net", "*.authorize.net",
-    # EU-relevant additions
-    "revolut.com", "*.revolut.com",
-    "wise.com", "*.wise.com",
-    "*.nexigroup.com",
-    "*.nexi.it",
-    "sumup.com", "*.sumup.com",
-    "*.payu.com",
-    "pay.google.com",
-    "apple-pay-gateway.apple.com",
+    # Google Fonts
+    "fonts.googleapis.com", "fonts.gstatic.com",
+    # Adobe Fonts (Typekit)
+    "use.typekit.net", "*.typekit.com", "*.typekit.net", "fonts.adobe.com",
+    # Font Awesome
+    "use.fontawesome.com", "*.fontawesome.com", "ka-f.fontawesome.com",
+    # Bunny Fonts (privacy-friendly Google Fonts alternative)
+    "fonts.bunny.net",
+    # Edge Fonts / cdnfonts
+    "use.edgefonts.net", "fonts.cdnfonts.com"
 ]
 
 [categories.captcha]
@@ -1008,17 +518,44 @@ abbrev      = "CAP"
 description = "CAPTCHA / challenge services — blocking breaks logins & forms"
 severity    = "low"
 patterns = [
-    "www.recaptcha.net",
-    "*.recaptcha.net",
-    "recaptcha.net",
-    "hcaptcha.com",
-    "*.hcaptcha.com",
-    "newassets.hcaptcha.com",
+    # Google reCAPTCHA
+    "www.recaptcha.net", "*.recaptcha.net", "recaptcha.net",
+    # hCaptcha
+    "hcaptcha.com", "*.hcaptcha.com", "newassets.hcaptcha.com",
+    # Cloudflare Turnstile  (MUST be before cdn: *.cloudflare.com)
     "challenges.cloudflare.com",
-    "*.arkoselabs.com",
-    "client-api.arkoselabs.com",
-    "*.funcaptcha.com",
-    "*.geetest.com",
+    # Arkose Labs / FunCaptcha
+    "*.arkoselabs.com", "client-api.arkoselabs.com", "*.funcaptcha.com",
+    # GeeTest
+    "*.geetest.com"
+]
+
+[categories.payment]
+color       = "green"
+abbrev      = "PAY"
+description = "Payment processors — generally trusted, but sensitive traffic"
+severity    = "low"
+patterns = [
+    # Tech-giant wallets  (listed before jurisdiction catch-alls)
+    "pay.google.com", "apple-pay-gateway.apple.com",
+    # Stripe
+    "stripe.com", "*.stripe.com", "*.stripe.network", "*.stripecdn.com",
+    # PayPal
+    "paypal.com", "*.paypal.com", "*.paypalobjects.com",
+    # Braintree
+    "braintreegateway.com", "*.braintreegateway.com", "*.braintree-api.com",
+    # Adyen / Klarna
+    "adyen.com", "*.adyen.com", "klarna.com", "*.klarna.com", "*.klarnaservices.com",
+    # Square
+    "square.com", "*.square.com", "squareup.com", "*.squareup.com",
+    # Checkout.com / Worldpay / Mollie
+    "checkout.com", "*.checkout.com", "*.cko.io", "worldpay.com", "*.worldpay.com", "mollie.com", "*.mollie.com",
+    # Subscription management
+    "recurly.com", "*.recurly.com", "zuora.com", "*.zuora.com", "paddle.com", "*.paddle.com", "fastspring.com", "*.fastspring.com",
+    # Direct debit / Others
+    "gocardless.com", "*.gocardless.com", "*.paysafe.com", "authorize.net", "*.authorize.net",
+    # EU-relevant
+    "revolut.com", "*.revolut.com", "wise.com", "*.wise.com", "*.nexigroup.com", "*.nexi.it", "sumup.com", "*.sumup.com", "*.payu.com"
 ]
 
 [categories.video_embed]
@@ -1027,43 +564,20 @@ abbrev      = "VID"
 description = "Embedded video players & their CDNs"
 severity    = "low"
 patterns = [
+    # YouTube (privacy-enhanced)
     "*.youtube-nocookie.com",
-    "player.vimeo.com",
-    "*.vimeo.com",
-    "*.vimeocdn.com",
-    "*.wistia.com",
-    "*.wistia.net",
-    "fast.wistia.net",
-    "*.jwplayer.com",
-    "*.jwpcdn.com",
-    "*.jwpltx.com",
-    "*.brightcove.com",
-    "*.brightcove.net",
-    "*.dailymotion.com",
-    "*.dmcdn.net",
-    "*.twitch.tv",
-    "*.ttvnw.net",
-]
-
-[categories.fonts]
-color       = "cornflower_blue"
-abbrev      = "FNT"
-description = "Web font services — downloads typefaces for page rendering"
-severity    = "low"
-patterns = [
-    "fonts.googleapis.com",
-    "fonts.gstatic.com",
-    "use.typekit.net",
-    "*.typekit.com",
-    "*.typekit.net",
-    "use.fontawesome.com",
-    "*.fontawesome.com",
-    "ka-f.fontawesome.com",
-    "fonts.bunny.net",
-    "*.bunny.net",
-    "fonts.adobe.com",
-    "use.edgefonts.net",
-    "fonts.cdnfonts.com",
+    # Vimeo
+    "player.vimeo.com", "*.vimeo.com", "*.vimeocdn.com",
+    # Wistia
+    "*.wistia.com", "*.wistia.net", "fast.wistia.net",
+    # JW Player
+    "*.jwplayer.com", "*.jwpcdn.com", "*.jwpltx.com",
+    # Brightcove
+    "*.brightcove.com", "*.brightcove.net",
+    # Dailymotion
+    "*.dailymotion.com", "*.dmcdn.net",
+    # Twitch
+    "*.twitch.tv", "*.ttvnw.net"
 ]
 
 [categories.cdn]
@@ -1072,210 +586,234 @@ abbrev      = "CDN"
 description = "Content delivery networks — edge caches for static assets"
 severity    = "low"
 patterns = [
-    # Cloudflare
-    "*.cloudflare.com",
-    "*.cloudflare.net",
-    "*.cloudflareinsights.com",
-    "*.cfcdn.net",
-    "*.cf-ipfs.com",
+    # Cloudflare  (Turnstile carved out above in captcha)
+    "*.cloudflare.com", "*.cloudflare.net", "*.cloudflareinsights.com", "*.cfcdn.net", "*.cf-ipfs.com",
     # Fastly
-    "*.fastly.net",
-    "*.fastlylb.net",
-    "*.fastlycdn.net",
+    "*.fastly.net", "*.fastlylb.net", "*.fastlycdn.net",
     # Akamai
-    "*.akamaihd.net",
-    "*.akamaized.net",
-    "*.akamai.net",
-    "*.akamaitechnologies.com",
-    "*.akamaiedge.net",
-    "*.edgesuite.net",
-    "*.edgekey.net",
+    "*.akamaihd.net", "*.akamaized.net", "*.akamai.net", "*.akamaitechnologies.com", "*.akamaiedge.net", "*.edgesuite.net", "*.edgekey.net",
     # AWS CloudFront
     "*.cloudfront.net",
     # Azure CDN
-    "*.azureedge.net",
-    "*.azurefd.net",
-    "*.msecnd.net",
-    "*.cdn.microsoft.com",
+    "*.azureedge.net", "*.azurefd.net", "*.msecnd.net", "*.cdn.microsoft.com",
     # jsDelivr / unpkg / cdnjs
-    "*.jsdelivr.net",
-    "cdn.jsdelivr.net",
-    "*.unpkg.com",
-    "unpkg.com",
-    "cdnjs.cloudflare.com",
+    "*.jsdelivr.net", "cdn.jsdelivr.net", "*.unpkg.com", "unpkg.com", "cdnjs.cloudflare.com",
     # Bootstrap CDN
-    "*.bootstrapcdn.com",
-    "maxcdn.bootstrapcdn.com",
-    # Cloudinary / Imgix
-    "*.cloudinary.com",
-    "*.imgix.net",
-    # Bunny CDN (main)
-    "*.b-cdn.net",
+    "*.bootstrapcdn.com", "maxcdn.bootstrapcdn.com",
+    # Cloudinary / Imgix (media CDNs)
+    "*.cloudinary.com", "*.imgix.net",
+    # Bunny CDN
+    "*.b-cdn.net", "*.bunny.net",
     # KeyCDN / Stackpath / Gcore / CDN77
-    "*.kxcdn.com",
-    "*.stackpathcdn.com",
-    "*.gcore.com",
-    "*.gcdn.co",
-    "*.cdn77.org",
-    "*.rsc.cdn77.org",
+    "*.kxcdn.com", "*.stackpathcdn.com", "*.gcore.com", "*.gcdn.co", "*.cdn77.org", "*.rsc.cdn77.org",
     # Supabase CDN
-    "*.supabase.co",
+    "*.supabase.co"
 ]
 
 # =======================================================================
-# CLOUD HOSTING — jurisdiction of the PROVIDER only!
-# The tenant behind these hostnames is unknown: anything from a
-# legitimate API to a tracker can run on them. Treat as "data goes to
-# CN/US infrastructure, content unknown". Specific known services on
-# these clouds (e.g. dashscope.aliyuncs.com) are caught by exact
-# patterns in their own categories.
+# CLOUD INFRASTRUCTURE — jurisdiction of the PROVIDER / REGION only.
+#   Tenant is unknown; a hit means "hosted here", not "owned by them".
+#   Region-pinned buckets (eu-west-1, europe-west1) MUST come before the
+#   provider-wide *.amazonaws.com / *.googleapis.com so an EU region isn't
+#   swallowed by the generic US bucket.
 # =======================================================================
+[categories.cloud_eu]
+color       = "green3"
+abbrev      = "CLEU"
+description = "EU/EEA cloud infrastructure — GDPR home jurisdiction"
+severity    = "low"
+geo_hint    = "EU"
+patterns = [
+    # Hetzner (DE)
+    "*.hetzner.com", "*.hetzner.cloud", "*.hetzner.io",
+    # OVHcloud (FR)
+    "*.ovh.com", "*.ovh.net", "*.ovhcloud.com",
+    # Scaleway (FR)
+    "*.scaleway.com", "*.scaleway.io",
+    # UpCloud (FI)
+    "*.upcloud.com", "*.upcloud.io",
+    # AWS EU regions
+    "*.eu-west-1.amazonaws.com", "*.eu-central-1.amazonaws.com", "*.eu-west-2.amazonaws.com", "*.eu-west-3.amazonaws.com", "*.eu-north-1.amazonaws.com", "*.eu-south-1.amazonaws.com",
+    # Azure EU regions
+    "*.westeurope.azurewebsites.net", "*.northeurope.azurewebsites.net", "*.westeurope.cloudapp.azure.com", "*.northeurope.cloudapp.azure.com",
+    # Google Cloud EU regions
+    "*.europe-west1.googleapis.com", "*.europe-west3.googleapis.com", "*.europe-west4.googleapis.com", "*.europe-north1.googleapis.com"
+]
+
+[categories.cloud_adequacy]
+color       = "light_sea_green"
+abbrev      = "CLAD"
+description = "Cloud infra in adequacy countries (CH/UK…) — Art. 45 GDPR adequacy"
+severity    = "low"
+geo_hint    = "AD"
+patterns = [
+    # Exoscale (CH)
+    "*.exoscale.com", "*.exoscale.ch"
+]
+
+[categories.cloud_us]
+color       = "orange3"
+abbrev      = "CLUS"
+description = "US cloud/PaaS hosting — tenant unknown; CLOUD Act, partial DPF adequacy"
+severity    = "medium"
+geo_hint    = "US"
+patterns = [
+    # AWS (generic + US regions)
+    "*.amazonaws.com", "*.s3.amazonaws.com", "*.us-east-1.amazonaws.com", "*.us-west-1.amazonaws.com", "*.us-west-2.amazonaws.com",
+    # Azure (generic)
+    "*.azurewebsites.net", "*.azurestaticapps.net", "*.cloudapp.net",
+    # Google Cloud (generic)
+    "*.appspot.com", "*.run.app", "*.web.app", "*.firebaseapp.com", "*.firebaseio.com",
+    # PaaS / edge hosting
+    "*.herokuapp.com", "*.vercel.app", "*.netlify.app", "*.fly.dev", "*.railway.app", "*.onrender.com", "*.pages.dev", "*.workers.dev",
+    "*.digitaloceanspaces.com"
+]
 
 [categories.cloud_cn]
-color       = "red3"
+color       = "orange3"
 abbrev      = "CLCN"
-description = "Chinese cloud infrastructure — tenant unknown, CN jurisdiction"
+description = "Chinese cloud infrastructure — tenant unknown; no GDPR adequacy"
 severity    = "medium"
 geo_hint    = "CN"
 patterns = [
     # Alibaba Cloud
     "*.aliyuncs.com",
     # Tencent Cloud
-    "*.myqcloud.com",
-    "*.tencentcloudapi.com",
+    "*.myqcloud.com", "*.tencentcloudapi.com",
     # Baidu Cloud
-    "*.bcebos.com",
-    "*.baidubce.com",
+    "*.bcebos.com", "*.baidubce.com",
     # Huawei Cloud
-    "*.huaweicloud.com",
-    "*.myhuaweicloud.com",
+    "*.huaweicloud.com", "*.myhuaweicloud.com",
     # ByteDance Volcano Engine
-    "*.volces.com",
-]
-
-[categories.cloud_us]
-color       = "steel_blue"
-abbrev      = "CLUS"
-description = "US cloud/PaaS hosting — tenant unknown, US jurisdiction (CLOUD Act)"
-severity    = "info"
-geo_hint    = "US"
-patterns = [
-    # AWS
-    "*.amazonaws.com",
-    "*.s3.amazonaws.com",
-    # Azure
-    "*.azurewebsites.net",
-    "*.azurestaticapps.net",
-    "*.cloudapp.net",
-    # Google Cloud / Firebase
-    "*.appspot.com",
-    "*.run.app",
-    "*.web.app",
-    "*.firebaseapp.com",
-    "*.firebaseio.com",
-    # PaaS / edge hosting
-    "*.herokuapp.com",
-    "*.vercel.app",
-    "*.netlify.app",
-    "*.fly.dev",
-    "*.railway.app",
-    "*.onrender.com",
-    "*.pages.dev",
-    "*.workers.dev",
-    "*.digitaloceanspaces.com",
+    "*.volces.com"
 ]
 
 # =======================================================================
-# US BIG TECH (informational catch-all)
-# Patterns with a RIGHT-side wildcard ("*.google.com.*", "*.amazon.*")
-# are handled by the RE fallback, checked only if the trie finds nothing.
+# JURISDICTION CATCH-ALLS — general platforms, graded by GDPR adequacy.
+#   These are the LAST resort: everything specific above wins first.
+#   US and CN share colour AND severity by design — this file makes no
+#   claim that either is worse; it only records which legal regime applies.
 # =======================================================================
+[categories.jurisdiction_eu]
+color       = "green3"
+abbrev      = "EU"
+description = "EU/EEA platforms — GDPR home jurisdiction"
+severity    = "low"
+geo_hint    = "EU"
+patterns = [
+    # Spotify (SE)
+    "spotify.com", "*.spotify.com", "scdn.co",
+    # Deutsche Telekom (DE)
+    "telekom.com", "*.telekom.com",
+    # Booking.com B.V. (NL)
+    "booking.com", "*.booking.com",
+    # SAP (DE)
+    "sap.com", "*.sap.com",
+    # Zalando (DE)
+    "zalando.com", "*.zalando.com"
+]
 
-[categories.us_bigtech]
-color       = "dodger_blue2"
-abbrev      = "BIG"
-description = "US big tech platforms — Google, Meta, Amazon, Microsoft, Apple"
-severity    = "info"
+[categories.jurisdiction_adequacy]
+color       = "light_sea_green"
+abbrev      = "ADQ"
+description = "Platforms in adequacy countries (UK/CH/JP/KR/CA…) — Art. 45 GDPR adequacy"
+severity    = "low"
+geo_hint    = "AD"
+patterns = [
+    # United Kingdom (UK GDPR + adequacy)
+    "vodafone.com", "*.vodafone.com",
+    # Japan (adequacy)
+    "*.rakuten.co.jp", "*.rakuten.com", "*.line.me", "*.line-scdn.net",
+    "*.nintendo.com", "*.nintendo.net", "*.sony.com", "*.sony.co.jp",
+    # South Korea (adequacy)
+    "samsung.com", "*.samsung.com", "*.samsungcloud.com", "*.samsungqbe.com", "*.samsungosp.com", "*.samsungapps.com",
+    "naver.com", "*.naver.com", "*.navercorp.com", "*.pstatic.net",
+    "*.kakao.com", "*.kakaocdn.net", "*.daum.net", "*.daumcdn.net",
+    "*.lg.com", "*.lge.com", "*.coupang.com",
+    # Switzerland (adequacy)
+    "proton.me", "*.proton.me", "protonmail.com", "*.protonmail.com"
+]
+
+[categories.jurisdiction_us]
+color       = "orange3"
+abbrev      = "US"
+description = "US big tech platforms — CLOUD Act; partial DPF adequacy"
+severity    = "medium"
 geo_hint    = "US"
 patterns = [
-    # Google (general — analytics/ads/telemetry caught by more specific rules)
-    "google.com",
-    "*.google.com",
-    "*.google.ad", "*.google.ae", "*.google.at", "*.google.au",
-    "*.google.be", "*.google.bg", "*.google.ba", "*.google.br",
-    "*.google.ca", "*.google.ch", "*.google.cl", "*.google.cn",
-    "*.google.co", "*.google.com.*", "*.google.cz", "*.google.de",
-    "*.google.dk", "*.google.ee", "*.google.es", "*.google.fi",
-    "*.google.fr", "*.google.gr", "*.google.hr", "*.google.hu",
-    "*.google.ie", "*.google.it", "*.google.lt", "*.google.lv",
-    "*.google.mk", "*.google.nl", "*.google.no", "*.google.pl",
-    "*.google.pt", "*.google.ro", "*.google.rs", "*.google.se",
-    "*.google.si", "*.google.sk",
-    "*.googleapis.com",
-    "*.gstatic.com",
-    "ssl.gstatic.com",
-    "*.ggpht.com",
-    "*.googlevideo.com",
-    "*.googleusercontent.com",
-    "*.googlezip.net",
-    "*.1e100.net",
-    # YouTube
-    "youtube.com",
-    "*.youtube.com",
-    "*.ytimg.com",
-    "*.yt3.ggpht.com",
-    "youtu.be",
-    # Meta / Facebook (tracking pixels caught above)
-    "facebook.com",
-    "*.facebook.com",
-    "*.fbcdn.net",
-    "*.fb.com",
-    "instagram.com",
-    "*.instagram.com",
-    "*.cdninstagram.com",
-    "whatsapp.com",
-    "*.whatsapp.com",
-    "*.whatsapp.net",
-    "messenger.com",
-    "*.messenger.com",
-    # Amazon (CDN caught above)
-    "amazon.com",
-    "*.amazon.com",
-    "*.amazon.*",
-    "*.media-amazon.com",
-    "*.ssl-images-amazon.com",
-    "*.primevideo.com",
-    "*.amazonvideo.com",
-    # Microsoft (CDN/Azure/telemetry caught above)
-    "microsoft.com",
-    "*.microsoft.com",
-    "*.windows.com",
-    "*.live.com",
-    "*.msn.com",
-    "*.bing.com",
-    "*.office.com",
-    "*.office365.com",
-    "*.sharepoint.com",
-    "*.teams.microsoft.com",
-    "*.azure.com",
-    "*.github.com",
-    "github.com",
-    "*.githubusercontent.com",
-    "*.githubassets.com",
-    # Apple (telemetry caught above)
-    "apple.com",
-    "*.apple.com",
-    "*.icloud.com",
-    "*.mzstatic.com",
-    "*.applecdn.net",
-    # Twitter / X (t.co is in social_tracking)
-    "twitter.com",
-    "*.twitter.com",
-    "*.twimg.com",
-    "x.com",
-    "*.x.com",
-    # LinkedIn (tracking pixels caught above)
-    "linkedin.com",
-    "*.linkedin.com",
-    "*.licdn.com",
+    # Google (incl. ccTLDs)
+    "google.com", "*.google.com", "*.google.ad", "*.google.ae", "*.google.at", "*.google.au",
+    "*.google.be", "*.google.bg", "*.google.ba", "*.google.br", "*.google.ca", "*.google.ch",
+    "*.google.cl", "*.google.co", "*.google.com.*", "*.google.cz", "*.google.de", "*.google.dk",
+    "*.google.ee", "*.google.es", "*.google.fi", "*.google.fr", "*.google.gr", "*.google.hr",
+    "*.google.hu", "*.google.ie", "*.google.it", "*.google.lt", "*.google.lv", "*.google.mk",
+    "*.google.nl", "*.google.no", "*.google.pl", "*.google.pt", "*.google.ro", "*.google.rs",
+    "*.google.se", "*.google.si", "*.google.sk",
+    "*.googleapis.com", "*.gstatic.com", "ssl.gstatic.com", "*.ggpht.com", "*.googlevideo.com",
+    "*.googleusercontent.com", "*.googlezip.net", "*.1e100.net",
+    "youtube.com", "*.youtube.com", "*.ytimg.com", "*.yt3.ggpht.com", "youtu.be",
+    # Meta
+    "facebook.com", "*.facebook.com", "*.fbcdn.net", "*.fb.com",
+    "instagram.com", "*.instagram.com", "*.cdninstagram.com",
+    "whatsapp.com", "*.whatsapp.com", "*.whatsapp.net", "messenger.com", "*.messenger.com",
+    # Amazon
+    "amazon.com", "*.amazon.com", "*.amazon.*", "*.media-amazon.com", "*.ssl-images-amazon.com",
+    "*.primevideo.com", "*.amazonvideo.com",
+    # Microsoft
+    "microsoft.com", "*.microsoft.com", "*.windows.com", "*.live.com", "*.msn.com", "*.bing.com",
+    "*.office.com", "*.office365.com", "*.sharepoint.com", "*.teams.microsoft.com", "*.azure.com",
+    "github.com", "*.github.com", "*.githubusercontent.com", "*.githubassets.com",
+    "linkedin.com", "*.linkedin.com", "*.licdn.com",
+    # Apple
+    "apple.com", "*.apple.com", "*.icloud.com", "*.mzstatic.com", "*.applecdn.net",
+    # X / Twitter
+    "twitter.com", "*.twitter.com", "*.twimg.com", "x.com", "*.x.com"
+]
+
+[categories.jurisdiction_cn]
+color       = "orange3"
+abbrev      = "CN"
+description = "Chinese tech platforms — PIPL/DSL; no GDPR adequacy decision"
+severity    = "medium"
+geo_hint    = "CN"
+patterns = [
+    # Baidu
+    "baidu.com", "*.baidu.com", "*.baidu.cn", "*.bdstatic.com",
+    # Alibaba / Alipay / Aliyun / AliExpress
+    "alibaba.com", "*.alibaba.com", "*.alicdn.com",
+    "*.alipay.com", "*.alipayobjects.com", "*.aliyun.com",
+    "*.taobao.com", "*.tmall.com", "*.alibabacloud.com", "*.aliexpress.com",
+    # Tencent / QQ / WeChat
+    "qq.com", "*.qq.com", "*.tencent.com", "*.tencentcs.com",
+    "*.wechat.com", "*.weixin.qq.com", "*.qpic.cn",
+    # ByteDance / TikTok / Douyin (general; tracking endpoints are social_tracking)
+    "*.bytedance.com", "*.byteimg.com", "*.bytetcdn.com",
+    "*.tiktok.com", "*.tiktokv.com", "*.tiktokcdn.com", "*.tiktokd.com",
+    "*.snssdk.com", "*.musical.ly", "*.ibyteimg.com",
+    # Huawei
+    "*.huawei.com", "*.hicloud.com", "*.hwccloud.com", "*.hihonorcloud.com",
+    # Xiaomi
+    "*.xiaomi.com", "*.miui.com", "*.mi.com",
+    # Oppo / OnePlus / Realme
+    "*.heytap.com", "*.heytapmobi.com", "*.oppomobile.com", "*.coloros.com",
+    # Other major tech
+    "*.bilibili.com", "*.jd.com", "*.pinduoduo.com", "*.temu.com",
+    "*.shein.com", "*.meituan.com", "*.dianping.com", "*.360.cn", "*.qihoo.com"
+]
+
+[categories.jurisdiction_other]
+color       = "red3"
+abbrev      = "OTH"
+description = "Other non-adequacy jurisdictions (e.g. RU) — outside GDPR adequacy"
+severity    = "medium"
+geo_hint    = "RU"
+patterns = [
+    # Russia — no adequacy decision
+    "yandex.ru", "*.yandex.ru", "yandex.com", "*.yandex.com", "*.yandex.net",
+    "*.yandex.ua", "*.yandex.kz", "*.yandex.by", "ya.ru", "*.ya.ru", "*.yastatic.net", "*.yadro.ru",
+    "mail.ru", "*.mail.ru", "vk.com", "*.vk.com", "*.vkontakte.ru", "*.vk.me", "*.vkuser.net",
+    "ok.ru", "*.ok.ru", "*.odnoklassniki.ru", "*.mycdn.me",
+    "*.rambler.ru", "*.2gis.ru", "*.2gis.com",
+    "*.sber.ru", "*.sberbank.ru", "*.sbercloud.ru", "*.rustore.ru",
+    "*.kaspersky.com", "*.kaspersky-labs.com", "*.drweb.com", "*.drweb.ru"
 ]

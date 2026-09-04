@@ -4,18 +4,24 @@
 # Categories are checked in ORDER — first match wins.
 # Put more-specific categories BEFORE broad catch-alls.
 #
+# NEUTRALITY: geographic categories (CN/RU/US) share the SAME colour and
+# severity. This file records which legal regime processes the data, not a
+# claim that one is worse than another. All three sit outside or only
+# partially within the EU/GDPR regime; grade them yourself if you disagree.
+#
 # Each category:
 #   color       Rich/Textual colour name shown in the TUI
 #   abbrev      3–5 char label shown in the connection table
 #   description Short human-readable explanation
-#   block       true = block by default at startup (can toggle in TUI)
+#   severity    high | medium | low | info  — for sorting/filtering in TUI
 #   geo_hint    Two-letter country code shown in the Categories panel
 #   patterns    List of fnmatch hostname patterns (* matches any string)
 #
 # TUI commands:
-#   block   <name>    block all connections in this category
-#   unblock <name>    allow them again
-#   cats              list all categories with current status
+#   deny   @<name|abbrev>    block all connections in this category
+#   allow  @<name|abbrev>    explicitly allow (useful in allowlist mode)
+#   remove @<name|abbrev>    clear override — back to default allow
+#   cats                     list all categories with current status
 #
 # To add your own categories: append a new [categories.mycat] section.
 # -----------------------------------------------------------------------
@@ -26,7 +32,7 @@
 color       = "red"
 abbrev      = "ADV"
 description = "Advertising networks and programmatic ad platforms"
-block       = false
+severity    = "high"
 patterns = [
     "*.doubleclick.net",
     "doubleclick.net",
@@ -93,7 +99,7 @@ patterns = [
 color       = "magenta"
 abbrev      = "SOC"
 description = "Social network tracking pixels, share buttons, and retargeting"
-block       = false
+severity    = "high"
 patterns = [
     "connect.facebook.net",
     "*.facebook.net",
@@ -122,7 +128,7 @@ patterns = [
 color       = "yellow"
 abbrev      = "ANA"
 description = "Web analytics, user behaviour tracking, and session recording"
-block       = false
+severity    = "medium"
 patterns = [
     "google-analytics.com",
     "*.google-analytics.com",
@@ -204,10 +210,10 @@ patterns = [
 ]
 
 [categories.telemetry]
-color       = "orange3"
+color       = "dark_goldenrod"
 abbrev      = "TEL"
 description = "Browser and OS telemetry, URL-bar suggestions, update checks"
-block       = false
+severity    = "medium"
 patterns = [
     # Google / Chrome
     "safebrowsing.google.com",
@@ -256,14 +262,14 @@ patterns = [
     "swdist.apple.com",
 ]
 
-# ---- Geo-suspicious (outside GDPR jurisdiction) ----
+# ---- Geographic jurisdiction (data processed outside/partially within EU) ----
 
 [categories.suspicious_cn]
-color       = "red3"
-abbrev      = "CN!"
+color       = "orange3"
+abbrev      = "CN"
 description = "Chinese tech companies — data processed outside EU/GDPR jurisdiction"
 geo_hint    = "CN"
-block       = false
+severity    = "medium"
 patterns = [
     # Baidu
     "baidu.com",
@@ -345,11 +351,11 @@ patterns = [
 ]
 
 [categories.suspicious_ru]
-color       = "red"
-abbrev      = "RU!"
+color       = "orange3"
+abbrev      = "RU"
 description = "Russian internet companies — outside EU data protection jurisdiction"
 geo_hint    = "RU"
-block       = false
+severity    = "medium"
 patterns = [
     # Yandex
     "yandex.ru",
@@ -394,7 +400,7 @@ patterns = [
 color       = "green"
 abbrev      = "PAY"
 description = "Payment processors — generally trusted, but sensitive traffic"
-block       = false
+severity    = "low"
 patterns = [
     "stripe.com", "*.stripe.com",
     "*.stripe.network",
@@ -427,7 +433,7 @@ patterns = [
 color       = "blue"
 abbrev      = "FNT"
 description = "Web font services — downloads typefaces for page rendering"
-block       = false
+severity    = "low"
 patterns = [
     "fonts.googleapis.com",
     "fonts.gstatic.com",
@@ -447,7 +453,7 @@ patterns = [
 color       = "cyan"
 abbrev      = "CDN"
 description = "Content delivery networks — edge caches for static assets"
-block       = false
+severity    = "low"
 patterns = [
     # Cloudflare
     "*.cloudflare.com",
@@ -502,11 +508,11 @@ patterns = [
 # e.g. fonts.googleapis.com → fonts, doubleclick.net → advertising.
 
 [categories.us_bigtech]
-color       = "bright_blue"
-abbrev      = "BIG"
+color       = "orange3"
+abbrev      = "US"
 description = "US big tech platforms — Google, Meta, Amazon, Microsoft, Apple"
 geo_hint    = "US"
-block       = false
+severity    = "medium"
 patterns = [
     # Google (general — analytics/ads/telemetry caught above)
     "google.com",
@@ -520,7 +526,7 @@ patterns = [
     "*.google.ie", "*.google.it", "*.google.lt", "*.google.lv",
     "*.google.mk", "*.google.nl", "*.google.no", "*.google.pl",
     "*.google.pt", "*.google.ro", "*.google.rs", "*.google.se",
-    "*.google.si", "*.google.sk", "*.google.sk", "*.google.si",
+    "*.google.si", "*.google.sk",
     "*.googleapis.com",
     "*.gstatic.com",
     "*.ggpht.com",

@@ -386,9 +386,14 @@ _CATS_SEV_LABEL = {
     "low":    "── low ──",
     "info":   "── info ──",
 }
+_SEV_COLOR = {
+    "high":   "dim red",
+    "medium": "dim yellow",
+    "low":    "dim green",
+}
 
 
-def _build_cats_markup(cats: list) -> str:
+def _build_cats_markup(cats: list, classifier=None) -> str:
     sorted_cats = sorted(
         cats, key=lambda c: (_CATS_SEVERITY_RANK.get(c.severity, 4), c.name)
     )
@@ -402,12 +407,15 @@ def _build_cats_markup(cats: list) -> str:
             lines.append(f"[dim]{_CATS_SEV_LABEL.get(sev, f'── {sev} ──')}[/]")
             lines.append("")
             prev_sev = sev
-        col = cat.color or "white"
+        col = _SEV_COLOR.get(sev, "white")
         abbrev_text = f"{markup_escape(cat.abbrev):<5}"
         name_text = markup_escape(f"{cat.name:<24}")
         # geo_hint as dim plain text — avoid [XX] being parsed as Rich markup tag
         geo = f" [dim]{markup_escape(cat.geo_hint)}[/]" if cat.geo_hint else ""
-        #blk = " [red]● blocked[/]" if cat.block else "" #TODO: review
+        blocked = (
+            classifier.is_category_blocked(cat.name) if classifier is not None else False
+        )
+        blk = " [red]● blocked[/]" if blocked else ""
         desc = f" [dim]{markup_escape(cat.description)}[/]" if cat.description else ""
         lines.append(f"  [{col}]{abbrev_text}[/]  [bold]{name_text}[/]{geo}{blk}{desc}")
     return "\n".join(lines)
@@ -1159,8 +1167,9 @@ class ProxyApp(App):
         cat = self.classifier.get_by_name(category)
         if cat is None:
             return f"[dim]{category[:3].upper()}[/]"
+        col = _SEV_COLOR.get(cat.severity or "info", "white")
         blocked_marker = "[red bold]![/]" if self.classifier.is_category_blocked(cat.name) else ""
-        return f"[{cat.color}]{cat.abbrev}[/]{blocked_marker}"
+        return f"[{col}]{cat.abbrev}[/]{blocked_marker}"
 
     def _cat_abbrev(self, category: str) -> str:
         """Plain abbreviation string (no colour) for dim history rows."""
@@ -1213,17 +1222,19 @@ class ProxyApp(App):
             override = self.classifier.get_cat_override(cat.name)
             geo = f"[dim]{cat.geo_hint}[/] " if cat.geo_hint else ""
             count_str = f"  [dim]{n}[/]" if n > 0 else ""
+            abbrev = f"{cat.abbrev:<5}"
+            col = _SEV_COLOR.get(sev, "white")
             if blocked:
                 lines.append(
-                    f"  [{cat.color}]{cat.abbrev}[/] [red]✗ {geo}{cat.name}[/]{count_str}"
+                    f"  [{col}]{abbrev}[/] [red]✗[/] {geo}{cat.name}{count_str}"
                 )
             elif override is False:
                 lines.append(
-                    f"  [{cat.color}]{cat.abbrev}[/] [green]✓ {geo}{cat.name}[/]{count_str}"
+                    f"  [{col}]{abbrev}[/] [green]✓[/] {geo}{cat.name}{count_str}"
                 )
             else:
                 lines.append(
-                    f"  [{cat.color}]{cat.abbrev}[/]   {geo}{cat.name}{count_str}"
+                    f"  [{col}]{abbrev}[/]   {geo}{cat.name}{count_str}"
                 )
 
         content = "\n".join(lines)
@@ -1597,7 +1608,7 @@ class ProxyApp(App):
         self.push_screen(HelpScreen())
 
     def action_show_cats(self) -> None:
-        self.push_screen(CatsScreen(_build_cats_markup(self.classifier.categories)))
+        self.push_screen(CatsScreen(_build_cats_markup(self.classifier.categories, self.classifier)))
 
     async def action_graceful_quit(self) -> None:
         """Stop accepting connections, drain active relays (up to 3 s), then exit."""
