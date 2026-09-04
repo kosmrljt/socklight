@@ -188,5 +188,4 @@ sockLight is a development tool — no authentication, no encryption between cli
 
 MIT © Tomaž Košmrlj
 
----
 Built through iterative pair programming with [Claude](https://claude.ai) (Anthropic).
