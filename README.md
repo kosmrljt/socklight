@@ -5,17 +5,17 @@
 Point your containers or tools at it and see every outbound connection in real time — with the ability to block, allow, throttle, and categorize traffic without restarting anything.
 
 ```
-┌─ Connections ──────────────────────────────────────────────────┬─ Categories ─────┐
-│ ID  Status     Cat   Target                    ↑KB/s  ↓KB/s   │ ADV ✗ advertising│
-│  9  ACTIVE     ANA   analytics.google.com:443   0      142     │ ANA   analytics  │
-│  8  CLOSED     ADV   doubleclick.net:443                       │ TEL   telemetry  │
-│  7  DENIED     FPR   fingerprint.com:443                       ├─ Filter rules ───┤
+┌─ Connections ──────────────────────────────────────────────────┬─ Categories ──────┐
+│ ID  Status     Cat   Target                    ↑KB/s  ↓KB/s    │ ADV ✗ advertising │
+│  9  ACTIVE     ANA   analytics.google.com:443   0      142     │ ANA   analytics   │
+│  8  CLOSED     ADV   doubleclick.net:443                       │ TEL   telemetry   │
+│  7  DENIED     FPR   fingerprint.com:443                       ├─ Filter rules ────┤
 ├─ Activity log ─────────────────────────────────────────────────┤ ✗ *.ads.com      │
 │ 14:23:01 ACTIVE  api.github.com:443 [ANA]                      │ ✓ api.myapp.com  │
-│ 14:23:02 DENIED  fingerprint.com:443 [FPR]                     │                  │
-├─ Command ──────────────────────────────────────────────────────┘                  │
+│ 14:23:02 DENIED  fingerprint.com:443 [FPR]                     │                   │
+├─ Command ──────────────────────────────────────────────────────┘                   │
 │ > deny @advertising                                                                │
-└────────────────────────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────────────────── ───┘
 ```
 
 ## Why
@@ -41,7 +41,7 @@ pip install git+https://github.com/kosmrljt/socklight.git
 socklight                              # 32 categories loaded automatically
 socklight --rules-file rules/dev.rules # with saved rules
 socklight --categories simple          # 10 broad categories instead
-socklight --categories-file my.toml   # custom category definitions
+socklight --categories-file my.toml    # custom category definitions
 ```
 
 First run without a rules file: type `deny @advertising` → `save` inside the TUI. sockLight creates the rules file on first save.
@@ -189,5 +189,4 @@ sockLight is a development tool — no authentication, no encryption between cli
 MIT © Tomaž Košmrlj
 
 ---
-
 Built through iterative pair programming with [Claude](https://claude.ai) (Anthropic).

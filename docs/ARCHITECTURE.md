@@ -191,12 +191,12 @@ Largest module (~2400 lines). Built with [Textual](https://textual.textualize.io
 ```
 ┌─ Connections table ─────────────────────┬─ Categories ──┐
 │ ID  Status  Cat  Target  ↑KB/s  ↓KB/s … │  ADV  ads…    │
-│ …                                        │  ANA  analy…  │
+│ …                                       │  ANA  analy…  │
 ├─ Activity log ──────────────────────────┤  …            │
-│ 10:42:01 ACTIVE  google.com:443          ├─ Filter rules ┤
-│ 10:42:02 DENIED  ads.example.com         │  ✗ *.ads.com  │
+│ 10:42:01 ACTIVE  google.com:443         ├─ Filter rules ┤
+│ 10:42:02 DENIED  ads.example.com        │  ✗ *.ads.com  │
 ├─ Command input ─────────────────────────┤  ✓ safe.io    │
-│ >                                        └───────────────┘
+│ >                                       └───────────────┘
 └─────────────────────────────────────────┘
 ```
 
