@@ -18,8 +18,7 @@ Point your containers or tools at it and see every outbound connection in real t
 └────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-<!-- TODO: replace the ASCII mock above (or add below it) with a screen recording:
-     ![sockLight dashboard](docs/img/demo.gif) -->
+![sockLight dashboard](docs/demo.gif)
 
 ## Why
 
