@@ -4,11 +4,8 @@
 
 Point your containers or tools at it and see every outbound connection in real time — with the ability to block, allow, throttle, and categorize traffic without restarting anything.
 
-```
-
 ![sockLight dashboard](docs/demo.gif)
 
-```
 
 ## Why
 
