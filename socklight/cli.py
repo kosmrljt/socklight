@@ -57,9 +57,16 @@ def _builtin_categories(name: str) -> str:
 
 
 def main() -> None:
+    try:
+        from importlib.metadata import version as _pkg_version
+        _version = _pkg_version("socklight")
+    except Exception:
+        _version = "unknown"
+
     parser = argparse.ArgumentParser(
         description="SOCKS5 development proxy with TUI dashboard",
     )
+    parser.add_argument("--version", action="version", version=f"socklight {_version}")
     parser.add_argument(
         "--host",
         default="0.0.0.0",
