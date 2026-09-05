@@ -5,20 +5,8 @@
 Point your containers or tools at it and see every outbound connection in real time — with the ability to block, allow, throttle, and categorize traffic without restarting anything.
 
 ```
-┌─ Connections ──────────────────────────────────────────────────┬─ Categories ──────┐
-│ ID  Status     Cat   Target                    ↑KB/s  ↓KB/s    │ ADV ✗ advertising │
-│  9  ACTIVE     ANA   analytics.google.com:443   0      142     │ ANA   analytics   │
-│  8  CLOSED     ADV   doubleclick.net:443                       │ TEL   telemetry   │
-│  7  DENIED     FPR   fingerprint.com:443                       ├─ Filter rules ────┤
-├─ Activity log ─────────────────────────────────────────────────┤ ✗ *.ads.com       │
-│ 14:23:01 ACTIVE  api.github.com:443 [ANA]                      │ ✓ api.myapp.com   │
-│ 14:23:02 DENIED  fingerprint.com:443 [FPR]                     │                   │
-├─ Command ──────────────────────────────────────────────────────┘                   │
-│ > deny @advertising                                                                │
-└────────────────────────────────────────────────────────────────────────────────────┘
-```
-
 ![sockLight dashboard](docs/demo.gif)
+```
 
 ## Why
 
