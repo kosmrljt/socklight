@@ -466,8 +466,17 @@ class ProxyServer:
                     return
                 except OSError as exc:
                     self.log(f"FAILED  {target} ({exc})")
+                    # RFC 1928: TCP connection refused → CONNECTION_REFUSED (0x05)
+                    #           DNS / host-not-found   → HOST_UNREACHABLE   (0x04)
+                    # AnyIO wraps the real error in __cause__; check both.
+                    cause = exc.__cause__ or exc
+                    reply = (
+                        ReplyStatus.CONNECTION_REFUSED
+                        if isinstance(cause, ConnectionRefusedError)
+                        else ReplyStatus.HOST_UNREACHABLE
+                    )
                     try:
-                        await send_reply(client_stream, ReplyStatus.CONNECTION_REFUSED)
+                        await send_reply(client_stream, reply)
                     except (EndOfStream, ClosedResourceError, BrokenResourceError, ConnectionError):
                         pass
                     self.tracker.close(conn, failed=True)

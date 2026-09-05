@@ -273,7 +273,7 @@ async def read_connect_request(client: ByteStream) -> ConnectRequest | None:
         length = length_byte[0]  # single byte → int
         if length == 0:
             raise ValueError("SOCKS5 domain name length is 0")
-        host = (await read_exact(client, length)).decode("ascii")
+        host = (await read_exact(client, length)).decode("ascii", errors="replace")
 
     elif address_type == AddressType.IPV6:
         raw = await read_exact(client, 16)

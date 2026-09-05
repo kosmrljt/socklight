@@ -166,14 +166,21 @@ async def relay_streams(
 
         try:
             while True:
-                data = await source.receive(chunk_size)
+                bps = (throttle.download_bps if is_download else throttle.upload_bps) if throttle else None
+
+                # At low throttle rates, shrink the read chunk to ~100 ms of data
+                # so the receiver gets a steady trickle instead of large bursts.
+                if bps and bps > 0:
+                    effective = min(chunk_size, max(1024, bps // 10))
+                else:
+                    effective = chunk_size
+
+                data = await source.receive(effective)
                 await dest.send(data)
                 on_data(len(data))
 
                 if throttle is None:
                     continue
-
-                bps = throttle.download_bps if is_download else throttle.upload_bps
 
                 if bps != last_bps:
                     # Rate changed (or first chunk) — start a fresh window.

@@ -7,7 +7,7 @@ Type in the command bar at the bottom. `Tab` autocompletes, `↑ ↓` browse his
 ### Filter rules
 
 ```
-deny  *.ads.com              block domain and all subdomains
+deny  *.ads.com              block all subdomains (not the root ads.com itself)
 deny  tracker.io:443         block specific host + port
 allow api.myapp.com          add allow rule
 remove *.ads.com             remove a rule
@@ -116,18 +116,20 @@ throttle slow-api.example.com delay:300ms
 |---|---|
 | `example.com` | Exact host, any port |
 | `example.com:443` | Exact host + port |
-| `*.example.com` | Any subdomain of example.com |
+| `*.example.com` | Any subdomain of example.com — **not** `example.com` itself |
 | `*.example.com:8080` | Any subdomain on port 8080 |
 | `*` | Everything |
 
 Patterns use fnmatch wildcards — `*` matches any string including dots.
+**Note:** `*.example.com` matches `sub.example.com` but **not** the root `example.com`.
+To block both, add two rules: `deny *.example.com` and `deny example.com`.
 
 ---
 
 ## Category definitions
 
-Categories are loaded from a TOML file (`--categories-file`). The included `categories-ai.toml`
-covers 32 categories: advertising, analytics, telemetry, fingerprinting, session recording,
+Categories are loaded from a TOML file (`--categories-file`). The built-in `full` preset
+covers 34 categories: advertising, analytics, telemetry, fingerprinting, session recording,
 CDN, cloud providers, social tracking, data brokers, and more.
 
 Each category has:

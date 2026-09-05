@@ -1,21 +1,19 @@
 # Block ads & trackers by category
 
-Categories let you block hundreds of domains at once with a single command. The included `categories-ai.toml` covers 32 categories: advertising, analytics, fingerprinting, session recording, telemetry, CDN, social tracking, data brokers, and more.
+Categories let you block hundreds of domains at once with a single command. The built-in `full` preset covers 34 categories: advertising, analytics, fingerprinting, session recording, telemetry, CDN, social tracking, data brokers, and more.
 
-## 1. Start with a categories file
+## 1. Start sockLight
 
 ```bash
 socklight
 socklight --rules-file rules/dev.rules
 ```
 
+Categories from the `full` preset are loaded automatically. Use `--categories simple` for 10 broad categories, or `--categories-file` for a custom TOML file.
+
 ## 2. See what categories are loaded
 
-```
-cats
-```
-
-Lists all categories sorted by severity with abbreviation, status (blocked / allowed / default), and description. Press `F2` in the TUI for a colour-coded panel view.
+Press `F2` in the TUI — a panel lists all categories sorted by severity with abbreviation, status (blocked / allowed / default), and description.
 
 ## 3. Block categories
 

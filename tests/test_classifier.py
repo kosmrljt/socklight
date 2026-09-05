@@ -229,27 +229,27 @@ class TestBlocking:
 class TestCategoriesFileIntegration:
     def test_load_shipped_categories_file(self):
         """The shipped categories.toml is valid and loads correctly."""
-        shipped = Path(__file__).parent.parent / "categories.toml"
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         n = c.load_file(shipped)
         assert n > 0
         assert len(c.categories) == n
 
     def test_google_analytics_classified(self):
-        shipped = Path(__file__).parent.parent / "categories.toml"
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         c.load_file(shipped)
         cat = c.classify("www.google-analytics.com")
         assert cat.name == "analytics"
 
     def test_doubleclick_classified_as_advertising(self):
-        shipped = Path(__file__).parent.parent / "categories.toml"
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         c.load_file(shipped)
         cat = c.classify("ad.doubleclick.net")
@@ -257,9 +257,9 @@ class TestCategoriesFileIntegration:
 
     def test_fonts_googleapis_not_bigtech(self):
         """fonts.googleapis.com must match 'fonts', not 'us_bigtech'."""
-        shipped = Path(__file__).parent.parent / "categories.toml"
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         c.load_file(shipped)
         cat = c.classify("fonts.googleapis.com")
@@ -267,28 +267,28 @@ class TestCategoriesFileIntegration:
 
     def test_cloudfront_is_cdn_not_bigtech(self):
         """*.cloudfront.net must match 'cdn', not 'us_bigtech'."""
-        shipped = Path(__file__).parent.parent / "categories.toml"
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         c.load_file(shipped)
         cat = c.classify("d1234.cloudfront.net")
         assert cat.name == "cdn"
 
-    def test_tiktok_is_suspicious_cn(self):
-        shipped = Path(__file__).parent.parent / "categories.toml"
+    def test_tiktok_is_jurisdiction_cn(self):
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         c.load_file(shipped)
         cat = c.classify("api.tiktok.com")
-        assert cat.name == "suspicious_cn"
+        assert cat.name == "jurisdiction_cn"
 
-    def test_yandex_is_suspicious_ru(self):
-        shipped = Path(__file__).parent.parent / "categories.toml"
+    def test_yandex_is_jurisdiction_other(self):
+        shipped = Path(__file__).parent.parent / "socklight" / "data" / "categories-full.toml"
         if not shipped.exists():
-            pytest.skip("categories.toml not present")
+            pytest.skip("categories-full.toml not present")
         c = Classifier()
         c.load_file(shipped)
         cat = c.classify("www.yandex.ru")
-        assert cat.name == "suspicious_ru"
+        assert cat.name == "jurisdiction_other"

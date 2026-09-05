@@ -52,7 +52,7 @@
 #   deny   @<name|abbrev>    block all connections in this category
 #   allow  @<name|abbrev>    explicitly allow (useful in allowlist mode)
 #   remove @<name|abbrev>    clear override — back to default allow
-#   cats                     list all categories with current status
+#   F2                       show all categories with current status
 #
 # To add your own categories: append a new [categories.mycat] section.
 # --------------------------------------------------------------------------------

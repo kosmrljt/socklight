@@ -29,7 +29,7 @@ TOML format
     color       = "red"
     abbrev      = "ADV"
     description = "Ad networks"
-    block       = false     # block by default (false = allow, toggle at runtime)
+    # blocking is controlled via rules file (deny @advertising) or TUI commands
     geo_hint    = ""        # optional 2-letter country code shown in the panel
     patterns    = [
         "*.doubleclick.net",
@@ -173,7 +173,7 @@ class Classifier:
         """Set or clear the runtime override for *name*.
 
         state=True  → explicitly denied (blocked)
-        state=False → explicitly allowed (overrides TOML block=true)
+        state=False → explicitly allowed (overrides a deny @category rule)
         state=None  → reset to TOML default
         """
         key = name.lower()

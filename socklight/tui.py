@@ -17,7 +17,6 @@ TUI commands
   reload                    Re-read the rules file (if one was loaded)
   loglevel all|connections|denied|errors|none
                             Change what the log shows
-  block/unblock <cat>       Block or unblock a connection category
   cats                      List all categories
   dump [path]               Save connections + log to a file (snapshot)
   clear                     Clear all rules
@@ -37,9 +36,7 @@ from __future__ import annotations
 import enum
 import json
 import os
-import shutil
 import socket
-import subprocess
 import sys
 import time
 import urllib.request
@@ -56,6 +53,7 @@ import anyio
 from rich.markup import escape as markup_escape
 from textual import events
 from textual.app import App, ComposeResult
+from textual.theme import Theme
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
@@ -75,23 +73,64 @@ from socklight.filters import FilterEngine, FilterMode, RuleKind
 from socklight.server import ProxyServer
 from socklight.throttle import ThrottleEngine, format_speed, parse_throttle_args
 from socklight.tracker import ConnectionTracker, ConnectionStatus, format_bytes
+from socklight.tui_screens import (
+    HelpScreen,
+    CatsScreen,
+    _build_cats_markup,
+    _CATS_SEVERITY_RANK,
+    _SEV_COLOR,
+)
+from socklight.tui_exporters import generate_pac, generate_privoxy, generate_adblock
 
+
+# ---------------------------------------------------------------------------
+# Custom themes
+# ---------------------------------------------------------------------------
+
+# "socklight" — muted teal/slate dark theme.
+# Primary: steel blue  Secondary: teal  Accent: amber  Error: coral
+_THEME_SOCKLIGHT = Theme(
+    name="Socklight",
+    dark=True,
+    primary="#4a9eca",       # steel blue — borders, cursor, highlights
+    secondary="#3fbfb0",     # teal — secondary UI elements
+    accent="#e8a838",        # amber — accent labels, active indicators
+    background="#0e1117",    # near-black slate
+    surface="#161c26",       # slightly lighter panels
+    panel="#1e2736",         # panel background
+    warning="#d29922",       # amber-yellow warnings
+    error="#e05c5c",         # muted coral errors
+    success="#3dba74",       # green success
+    foreground="#cdd6e4",    # soft blue-white text
+    luminosity_spread=0.12,
+)
 
 # ---------------------------------------------------------------------------
 # Theme config persistence
 # ---------------------------------------------------------------------------
 
-_CONFIG_PATH = Path.home() / ".config" / "socks5proxy" / "config.toml"
+_CONFIG_PATH = Path.home() / ".config" / "socklight" / "config.toml"
+_CONFIG_PATH_LEGACY = Path.home() / ".config" / "socks5proxy" / "config.toml"
 
 
 def _load_theme_config() -> str | None:
-    """Read the saved UI theme from the config file. Returns None if not set."""
-    try:
-        with open(_CONFIG_PATH, "rb") as fh:
-            data = tomllib.load(fh)
-        return data.get("ui", {}).get("theme")
-    except (OSError, Exception):
-        return None
+    """Read the saved UI theme from the config file. Returns None if not set.
+
+    Falls back to the legacy ~/.config/socks5proxy/ path and migrates it on
+    first successful read so future runs use the new location.
+    """
+    for path in (_CONFIG_PATH, _CONFIG_PATH_LEGACY):
+        try:
+            with open(path, "rb") as fh:
+                data = tomllib.load(fh)
+            theme = data.get("ui", {}).get("theme")
+            if theme and path == _CONFIG_PATH_LEGACY:
+                # Migrate: write to new path so next run finds it there.
+                _save_theme_config(theme)
+            return theme
+        except (OSError, Exception):
+            continue
+    return None
 
 
 def _save_theme_config(theme: str) -> None:
@@ -211,6 +250,8 @@ class SplitHandle(Widget):
         top = self.app.query_one(f"#{self._top_id}")
         bottom = self.app.query_one(f"#{self._bottom_id}")
         total = top.size.height + bottom.size.height
+        if total < 6:
+            return
         new_top = max(3, self._top_start_height + (event.screen_y - self._drag_start_y))
         new_top = min(new_top, total - 3)
         top.styles.height = new_top
@@ -245,13 +286,13 @@ class _ConnectionsTable(DataTable):
 _CMD_SUGGESTIONS = SuggestFromList(
     [
         "deny ", "deny @", "allow ", "allow @", "remove ", "remove @",
-        "block ", "unblock ", "cats",
+
         "mode denylist", "mode allowlist",
         "loglevel all", "loglevel connections", "loglevel denied",
         "loglevel errors", "loglevel none",
         "throttle ", "throttles", "throttles clear",
         "reload", "clear", "clear deny", "clear allow", "dump",
-        "save ", "save pac ", "save privoxy ", "kill ", "help", "quit",
+        "save ", "save pac ", "save privoxy ", "save adblock ", "kill ", "help", "quit",
     ],
     case_sensitive=False,
 )
@@ -260,196 +301,8 @@ _CMD_SUGGESTIONS = SuggestFromList(
 # Help modal
 # ---------------------------------------------------------------------------
 
-_HELP_MARKUP = """\
-[bold]Key bindings[/]
-
-  [dim]Connection actions[/]
-  [cyan]I[/]            info: DNS + GeoIP lookup for selected row
-  [cyan]K[/]            kill selected connection  [dim](force-close relay)[/]
-  [cyan]D[/]            [red]✗[/] deny selected host  [dim](prepend deny rule + kill)[/]
-  [cyan]A[/]            [green]✓[/] allow selected host  [dim](bypasses category block)[/]
-  [cyan]R[/]            remove deny/allow rule for selected host
-  [cyan]M[/]            mark for review  [dim](appended to marks.log)[/]
-  [cyan]Y[/]            copy hostname to clipboard
-  [cyan]T[/]            fill command input with throttle rule for this host
-
-  [dim]View[/]
-  [cyan]H[/]            toggle history  [dim](show / hide closed rows)[/]
-  [cyan]C[/]            clear activity log
-  [cyan]?[/]            show this help  [dim](also: F1)[/]
-  [cyan]F2[/]           show categories reference
-  [cyan]Q[/]            quit  [dim](also: Ctrl+Q)[/]
-
-  [dim]Navigation[/]
-  [cyan]Tab[/]          move focus between panels
-  [cyan]Escape[/]       clear command input / return focus to table
-  [cyan]End[/]          resume log auto-scroll
-  [cyan]Shift+↑ ↓[/]    scroll filter list          [cyan]Ctrl+↑ ↓[/]  scroll categories
-
-  [dim]In command input[/]
-  [cyan]↑ ↓[/]          browse command history
-  [cyan]→[/]            accept autocomplete suggestion
-
-[bold]Commands[/]
-
-  [dim]Filter rules[/]
-  [cyan]deny[/] [dim]<host>[/]              [red]✗[/] add deny rule  [dim](wildcards: *.ads.com  *.evil.*)[/]
-  [cyan]allow[/] [dim]<host>[/]             [green]✓[/] add allow rule  [dim](bypasses category block)[/]
-  [cyan]remove[/] [dim]<host>[/]            remove a specific rule
-  [cyan]mode[/] [dim]denylist|allowlist[/]  set default policy
-  [cyan]clear[/]                    remove all rules
-  [cyan]clear deny[/]               remove all deny rules
-  [cyan]clear allow[/]              remove all allow rules
-  [cyan]reload[/]                   re-read rules file from disk  [dim](requires --rules-file)[/]
-  [cyan]save[/] [dim]<path>[/]              write current rules to file
-  [cyan]save pac[/] [dim]<path>[/]          export PAC file for browser  [dim](deny+categories→blocked, allow→DIRECT)[/]
-  [cyan]save privoxy[/] [dim]<path>[/]      export Privoxy action + config snippet  [dim](same rules, HTTP/S→SOCKS5)[/]
-
-  [dim]Category overrides[/]  [dim](use @name or @ABBREV)[/]
-  [cyan]deny[/] [dim]@<name|abbrev>[/]      [red]⊘[/] block category  [dim](e.g. deny @ADV)[/]
-  [cyan]allow[/] [dim]@<name|abbrev>[/]     [green]✓[/] explicitly allow category  [dim](overrides TOML default block)[/]
-  [cyan]remove[/] [dim]@<name|abbrev>[/]    reset category to TOML default  [dim](no validation)[/]
-  [cyan]block[/] [dim]<name|abbrev>[/]      alias for deny @  [dim](legacy)[/]
-  [cyan]unblock[/] [dim]<name|abbrev>[/]    alias for allow @  [dim](legacy)[/]
-  [cyan]cats[/]                     list all categories with status
-
-  [dim]Utility[/]
-  [cyan]kill[/] [dim]<id>[/]                force-close a relay
-  [cyan]dump[/] [dim]<path>[/]              save snapshot to file  [dim](connections + log)[/]
-  [cyan]loglevel[/] [dim]<level>[/]         filter the activity log
-                           [dim]all  connections  denied  errors  none[/]
-
-[bold]Throttling[/]  [dim](filter checked first; applies to allowed connections only)[/]
-
-  [dim]Host rules[/]
-  [cyan]throttle[/] [dim]<host> <speed>[/]                     both directions
-  [cyan]throttle[/] [dim]<host> down:<speed> up:<speed>[/]     per-direction (asymmetric)
-  [cyan]throttle[/] [dim]<host> delay:<n>ms[/]                 latency only
-  [cyan]throttle[/] [dim]<host> <speed> delay:<n>ms[/]         bandwidth + latency combined
-  [cyan]throttle[/] [dim]<host> off[/]                         remove host rule
-
-  [dim]Category rules[/]  [dim](host rule takes priority if both match)[/]
-  [cyan]throttle[/] [dim]@<name|abbrev> <speed>[/]             throttle entire category
-  [cyan]throttle[/] [dim]@<name|abbrev> off[/]                 remove category rule
-
-  [dim]Live override[/]
-  [cyan]throttle[/] [dim]#<id> <speed>[/]                      override one connection  [dim](not saved)[/]
-
-  [cyan]throttles[/]                                   list all throttle rules
-  [cyan]throttles clear[/]                             remove all throttle rules
-
-  [dim]Examples[/]
-  [dim]  throttle *.slow.com 200k[/]
-  [dim]  throttle *.cdn.com down:500k up:2m[/]
-  [dim]  throttle @analytics 100k[/]
-  [dim]  throttle @ADV down:50k[/]
-  [dim]  throttle api.remote.com delay:300ms[/]
-
-  [dim]Speed units:  200k = 200 KB/s  ·  1m = 1 MB/s  ·  500 = 500 B/s[/]
-"""
-
-
-class HelpScreen(ModalScreen):
-    """Modal overlay showing key bindings and commands."""
-
-    BINDINGS = [
-        Binding("escape",        "dismiss", "Close"),
-        Binding("question_mark", "dismiss", "Close", show=False),
-        Binding("f1",            "dismiss", "Close", show=False),
-        Binding("q",             "dismiss", "Close", show=False),
-    ]
-
-    DEFAULT_CSS = """
-    HelpScreen { align: center middle; }
-    HelpScreen > VerticalScroll {
-        background: $surface;
-        border: solid $primary;
-        width: 120;
-        max-width: 95%;
-        height: auto;
-        max-height: 90%;
-        padding: 1 2;
-    }
-    """
-
-    def compose(self) -> ComposeResult:
-        with VerticalScroll():
-            yield Static(_HELP_MARKUP, markup=True)
-
-
-_CATS_SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2, "info": 3}
 _EMA_ALPHA     = 0.3   # smoothing factor for per-connection speed display
 _SPEED_MIN_BPS = 1000  # below 1 KB/s hide speed
-_CATS_SEV_LABEL = {
-    "high":   "── high ──",
-    "medium": "── medium ──",
-    "low":    "── low ──",
-    "info":   "── info ──",
-}
-_SEV_COLOR = {
-    "high":   "dim red",
-    "medium": "dim yellow",
-    "low":    "dim green",
-}
-
-
-def _build_cats_markup(cats: list, classifier=None) -> str:
-    sorted_cats = sorted(
-        cats, key=lambda c: (_CATS_SEVERITY_RANK.get(c.severity, 4), c.name)
-    )
-    lines = ["[bold]Categories[/]", ""]
-    prev_sev = None
-    for cat in sorted_cats:
-        sev = cat.severity or "info"
-        if sev != prev_sev:
-            if prev_sev is not None:
-                lines.append("")
-            lines.append(f"[dim]{_CATS_SEV_LABEL.get(sev, f'── {sev} ──')}[/]")
-            lines.append("")
-            prev_sev = sev
-        col = _SEV_COLOR.get(sev, "white")
-        abbrev_text = f"{markup_escape(cat.abbrev):<5}"
-        name_text = markup_escape(f"{cat.name:<24}")
-        # geo_hint as dim plain text — avoid [XX] being parsed as Rich markup tag
-        geo = f" [dim]{markup_escape(cat.geo_hint)}[/]" if cat.geo_hint else ""
-        blocked = (
-            classifier.is_category_blocked(cat.name) if classifier is not None else False
-        )
-        blk = " [red]● blocked[/]" if blocked else ""
-        desc = f" [dim]{markup_escape(cat.description)}[/]" if cat.description else ""
-        lines.append(f"  [{col}]{abbrev_text}[/]  [bold]{name_text}[/]{geo}{blk}{desc}")
-    return "\n".join(lines)
-
-
-class CatsScreen(ModalScreen):
-    """Modal overlay showing all loaded categories, sorted by severity."""
-
-    BINDINGS = [
-        Binding("escape", "dismiss", "Close"),
-        Binding("f2",     "dismiss", "Close", show=False),
-        Binding("q",      "dismiss", "Close", show=False),
-    ]
-
-    DEFAULT_CSS = """
-    CatsScreen { align: center middle; }
-    CatsScreen > VerticalScroll {
-        background: $surface;
-        border: solid $primary;
-        width: 140;
-        max-width: 95%;
-        height: auto;
-        max-height: 90%;
-        padding: 1 2;
-    }
-    """
-
-    def __init__(self, markup: str) -> None:
-        super().__init__()
-        self._markup = markup
-
-    def compose(self) -> ComposeResult:
-        with VerticalScroll():
-            yield Static(self._markup, markup=True)
 
 
 # ---------------------------------------------------------------------------
@@ -501,6 +354,7 @@ class ProxyApp(App):
         Binding("question_mark", "show_help",    "Help"),
         Binding("f1",            "show_help",    "Help", show=False),
         Binding("f2",            "show_cats",    "Cats", show=False),
+        Binding("f8",            "soft_reset",   "Reset session", show=False),
         Binding("y",             "copy_target",  "Copy URL", show=False),
     ]
 
@@ -549,8 +403,9 @@ class ProxyApp(App):
         background: $primary-background;
     }
     #activity-log      { height: 1fr; }
-    #filter-list        { height: 1fr; }
-    #categories-list    { height: auto; max-height: 50%; }
+    #filter-list        { height: auto; }
+    #right-spacer       { height: 1fr; }
+    #categories-list    { height: auto; }
     #categories-content { height: auto; }
     #command-input     { dock: bottom; }
     #status-bar {
@@ -598,7 +453,8 @@ class ProxyApp(App):
 
         self._server: ProxyServer | None = None
         self._log_fh: IO[str] | None = None
-        self._wl_copy_proc: subprocess.Popen | None = None
+
+        self._cat_cumulative: dict[str, int] = {}   # total connections per category since start
 
         # Stable-table state — connections stay in their row; no rebuild on close.
         self._display_order: list[int] = []        # conn IDs in insertion order
@@ -618,6 +474,9 @@ class ProxyApp(App):
         self._stats_fingerprint: tuple = ()
         self._filters_fingerprint: int = 0
         self._categories_fingerprint: tuple = ()
+        self._filter_line_count: int = 1   # lines in filter rules content (for layout)
+        self._cat_line_count: int = 0      # lines in categories content (for layout)
+        self._panel_heights_fp: tuple = ()  # fingerprint — skip if nothing changed
         self._log_buffer: deque[str] = deque(maxlen=2000)  # plain text, no markup
         self._show_history: bool = True  # H key toggles closed/denied/failed rows
         self._log_paused: bool = False
@@ -667,6 +526,7 @@ class ProxyApp(App):
                     id="filter-list",
                     can_focus=False,
                 )
+                yield Static("", id="right-spacer")
                 yield Static(" Categories", classes="section-title")
                 with VerticalScroll(id="categories-list", can_focus=False):
                     yield _NoSelectStatic("(use --categories-file to load)", id="categories-content")
@@ -737,13 +597,15 @@ class ProxyApp(App):
         self.run_worker(self._run_proxy(), exclusive=True, thread=False)
         self.set_interval(1.0, self._refresh_ui)
 
-        # Apply theme: CLI flag wins; else use saved config.
-        theme_to_apply = self._initial_theme or _load_theme_config()
-        if theme_to_apply:
-            try:
-                self.theme = theme_to_apply
-            except Exception:
-                pass  # unknown theme name — ignore
+        # Register custom themes so they are selectable by name.
+        self.register_theme(_THEME_SOCKLIGHT)
+
+        # Apply theme: CLI flag wins; else saved config; else socklight default.
+        theme_to_apply = self._initial_theme or _load_theme_config() or "Socklight"
+        try:
+            self.theme = theme_to_apply
+        except Exception:
+            pass  # unknown theme name — ignore
         self._startup_done = True  # now watch_theme may persist changes
 
     def watch_theme(self, theme: str) -> None:
@@ -751,13 +613,16 @@ class ProxyApp(App):
         if self._startup_done:
             _save_theme_config(theme)
 
+    def on_resize(self) -> None:
+        # Defer until after Textual completes the layout pass with the new size,
+        # so content_size.height reflects the resized terminal, not the old one.
+        self.call_after_refresh(self._apply_right_panel_heights)
+
     def on_unmount(self) -> None:
-        """Close the log file handle and clipboard process cleanly when the app exits."""
+        """Close the log file handle cleanly when the app exits."""
         if self._log_fh is not None:
             self._log_fh.close()
             self._log_fh = None
-        if self._wl_copy_proc is not None and self._wl_copy_proc.poll() is None:
-            self._wl_copy_proc.terminate()
 
     async def _run_proxy(self) -> None:
         self._server = ProxyServer(
@@ -894,6 +759,10 @@ class ProxyApp(App):
             self._cat_tick = 0
             self._refresh_categories(active)
 
+        # Re-apply right-panel heights every tick; fingerprint makes it a
+        # no-op unless panel size or content changed (catches terminal resize).
+        self.call_after_refresh(self._apply_right_panel_heights)
+
     # ── Table row helpers ──────────────────────────────────────────────────
 
     @staticmethod
@@ -1011,6 +880,9 @@ class ProxyApp(App):
             self._display_order.append(cid)
             self._display_set.add(cid)
             self._last_statuses[cid] = all_conns[cid].status
+            cat = getattr(all_conns[cid], "category", None)
+            if cat:
+                self._cat_cumulative[cat] = self._cat_cumulative.get(cat, 0) + 1
 
         # ── 2. H toggle → full rebuild ────────────────────────────────────
         if self._show_history != self._last_show_history:
@@ -1189,18 +1061,16 @@ class ProxyApp(App):
         if not cats:
             return
 
-        # Count connections per category — use pre-fetched active list + bounded history.
-        counts: dict[str, int] = {}
+        # Active count: only currently open connections.
+        active_counts: dict[str, int] = {}
         for conn in active:
             if conn.category:
-                counts[conn.category] = counts.get(conn.category, 0) + 1
-        for conn in self.tracker.get_recent_history(50):
-            if conn.category:
-                counts[conn.category] = counts.get(conn.category, 0) + 1
+                active_counts[conn.category] = active_counts.get(conn.category, 0) + 1
 
         new_fp = tuple(
             (c.name, self.classifier.is_category_blocked(c.name),
-             self.classifier.get_cat_override(c.name), counts.get(c.name, 0))
+             self.classifier.get_cat_override(c.name),
+             active_counts.get(c.name, 0), self._cat_cumulative.get(c.name, 0))
             for c in cats
         )
         if new_fp == self._categories_fingerprint:
@@ -1217,11 +1087,17 @@ class ProxyApp(App):
                     lines.append("")
                 lines.append(f"[dim]{_SEV_LABEL.get(sev, f'── {sev} ──')}[/]")
                 prev_sev = sev
-            n = counts.get(cat.name, 0)
-            blocked = self.classifier.is_category_blocked(cat.name)
+            n_active = active_counts.get(cat.name, 0)
+            n_total  = self._cat_cumulative.get(cat.name, 0)
+            blocked  = self.classifier.is_category_blocked(cat.name)
             override = self.classifier.get_cat_override(cat.name)
             geo = f"[dim]{cat.geo_hint}[/] " if cat.geo_hint else ""
-            count_str = f"  [dim]{n}[/]" if n > 0 else ""
+            if n_active > 0:
+                count_str = f"  [dim]{n_active} ~{n_total}[/]"
+            elif n_total > 0:
+                count_str = f"  [dim]~{n_total}[/]"
+            else:
+                count_str = ""
             abbrev = f"{cat.abbrev:<5}"
             col = _SEV_COLOR.get(sev, "white")
             if blocked:
@@ -1239,7 +1115,7 @@ class ProxyApp(App):
 
         content = "\n".join(lines)
         self._w_categories.update(content)
-        self._w_categories.styles.height = len(lines)
+        self._cat_line_count = len(lines)
 
     def _refresh_stats(self, active: list) -> None:
         n_active = len(active)
@@ -1278,6 +1154,7 @@ class ProxyApp(App):
         content = self._w_filter_rules
         if not rules:
             content.update("[dim](no rules)[/]")
+            self._filter_line_count = 1
         else:
             lines = []
             for rule in rules:
@@ -1287,6 +1164,70 @@ class ProxyApp(App):
                 else:
                     lines.append(f"  [green]✓ {orig}[/]")
             content.update("\n".join(lines))
+            self._filter_line_count = len(lines)
+
+        self.call_after_refresh(self._apply_right_panel_heights)
+
+    def _apply_right_panel_heights(self) -> None:
+        """Single source of truth for all right-panel heights.
+
+        Filters sit at the top with their natural height; categories sit at
+        the bottom. A spacer between them absorbs the remaining space.
+        When both together exceed the available height the spacer collapses
+        and they split the space equally (each gets a scrollbar).
+        Called from the tick loop (detects resize) and from on_resize.
+        """
+        try:
+            panel_h = self.query_one("#right-panel").content_size.height
+        except Exception:
+            return
+
+        # Fixed rows: " Filters" (1) + mode label (1) + " Categories" (1)
+        OVERHEAD = 3
+        available = panel_h - OVERHEAD
+        if available <= 1:
+            return
+
+        f = self._filter_line_count
+        c = self._cat_line_count
+
+        fp = (panel_h, f, c)
+        if fp == self._panel_heights_fp:
+            return
+        self._panel_heights_fp = fp
+
+        spacer = self.query_one("#right-spacer")
+        filter_list = self.query_one("#filter-list")
+        cat_list = self.query_one("#categories-list")
+
+        if f + c <= available:
+            # Both fit: natural heights, spacer fills the gap between them.
+            filter_list.styles.height = "auto"
+            spacer.styles.height = "1fr"
+            cat_list.styles.height = "auto"
+            if c > 0:
+                self._w_categories.styles.height = c
+        else:
+            # Overflow: collapse spacer.
+            # - If only filters fit fully: filters get what they need, cats get rest.
+            # - If only categories fit fully: cats get what they need, filters get rest.
+            # - If neither fits: 50/50 split.
+            spacer.styles.height = 0
+            MIN_FILTER = 4
+            MIN_CAT = 4
+            if f <= available - MIN_CAT:
+                filter_h = max(MIN_FILTER, f)
+                cat_h = available - filter_h
+            elif c <= available - MIN_FILTER:
+                cat_h = max(MIN_CAT, c)
+                filter_h = available - cat_h
+            else:
+                filter_h = max(MIN_FILTER, available // 2)
+                cat_h = max(MIN_CAT, available - filter_h)
+            filter_list.styles.height = filter_h
+            cat_list.styles.height = cat_h
+            if c > 0:
+                self._w_categories.styles.height = c
 
     # ---- command handling ----
 
@@ -1321,13 +1262,11 @@ class ProxyApp(App):
                 self.classifier.set_cat_override(cat.name, True)
                 self.filter_engine.block_category(cat.name)
                 self._proxy_log(f"CATEGORY {cat.abbrev} {cat.name} → BLOCKED", force=True)
-                self.notify(f"⊘ {cat.abbrev} {cat.name} blocked")
                 self._save_rules()
                 self._cat_tick = 3
             else:
                 rule = self.filter_engine.add_rule(arg, RuleKind.DENY)
                 self._proxy_log(f"RULE + deny {rule.original}", force=True)
-                self.notify(f"✗ deny {rule.original}")
                 self._save_rules()
 
         elif cmd == "allow":
@@ -1342,13 +1281,11 @@ class ProxyApp(App):
                 self.classifier.set_cat_override(cat.name, False)
                 self.filter_engine.unblock_category(cat.name)
                 self._proxy_log(f"CATEGORY {cat.abbrev} {cat.name} → explicitly allowed", force=True)
-                self.notify(f"✓ {cat.abbrev} {cat.name} allowed")
                 self._save_rules()
                 self._cat_tick = 3
             else:
                 rule = self.filter_engine.add_rule(arg, RuleKind.ALLOW)
                 self._proxy_log(f"RULE + allow {rule.original}", force=True)
-                self.notify(f"✓ allow {rule.original}")
                 self._save_rules()
 
         elif cmd == "remove":
@@ -1360,13 +1297,11 @@ class ProxyApp(App):
                 self.classifier.set_cat_override(cat_name, None)
                 self.filter_engine.reset_category(cat_name)
                 self._proxy_log(f"CATEGORY {cat_name} → reset to TOML default", force=True)
-                self.notify(f"↺ {cat_name} reset to default")
                 self._save_rules()
                 self._cat_tick = 3
             else:
                 if self.filter_engine.remove_rule(arg):
                     self._proxy_log(f"RULE - removed {arg}", force=True)
-                    self.notify(f"− removed {arg}")
                     self._save_rules()
                 else:
                     self.notify(f"No rule matching '{arg}'", severity="warning")
@@ -1375,12 +1310,10 @@ class ProxyApp(App):
             if arg.lower() == "denylist":
                 self.filter_engine.set_mode(FilterMode.DENYLIST)
                 self._proxy_log("MODE → DENYLIST (default: allow)", force=True)
-                self.notify("Mode → DENYLIST")
                 self._save_rules()
             elif arg.lower() == "allowlist":
                 self.filter_engine.set_mode(FilterMode.ALLOWLIST)
                 self._proxy_log("MODE → ALLOWLIST (default: deny)", force=True)
-                self.notify("Mode → ALLOWLIST")
                 self._save_rules()
             else:
                 self.notify("Usage: mode denylist|allowlist", severity="warning")
@@ -1403,19 +1336,24 @@ class ProxyApp(App):
             if sub.strip().lower() == "pac":
                 pac_path = Path(rest.strip()) if rest.strip() else Path("proxy.pac")
                 try:
-                    self._generate_pac(pac_path)
+                    generate_pac(self.filter_engine, self.classifier, self.proxy_host, self.proxy_port, pac_path)
                     self._proxy_log(f"PAC saved → {pac_path}", force=True)
-                    self.notify(f"PAC saved: {pac_path}")
                 except OSError as exc:
                     self.notify(f"PAC save failed: {exc}", severity="error")
             elif sub.strip().lower() == "privoxy":
                 base = Path(rest.strip()) if rest.strip() else Path("proxy-privoxy")
                 try:
-                    action_path, conf_path = self._generate_privoxy(base)
+                    action_path, conf_path = generate_privoxy(self.filter_engine, self.classifier, self.proxy_host, self.proxy_port, base)
                     self._proxy_log(f"Privoxy saved → {action_path}  {conf_path}", force=True)
-                    self.notify(f"Privoxy: {action_path.name}  {conf_path.name}")
                 except OSError as exc:
                     self.notify(f"Privoxy save failed: {exc}", severity="error")
+            elif sub.strip().lower() == "adblock":
+                ab_path = Path(rest.strip()) if rest.strip() else Path("proxy-adblock.txt")
+                try:
+                    n = generate_adblock(self.filter_engine, self.classifier, ab_path)
+                    self._proxy_log(f"Adblock saved → {ab_path}  ({n} rules)", force=True)
+                except OSError as exc:
+                    self.notify(f"Adblock save failed: {exc}", severity="error")
             else:
                 if arg:
                     self.rules_file = Path(arg)
@@ -1455,61 +1393,6 @@ class ProxyApp(App):
                 self._proxy_log("RULES cleared", force=True)
                 self.notify("Rules cleared")
                 self._save_rules()
-
-        elif cmd == "block":
-            if not arg:
-                self.notify("Usage: block <name|abbrev>  (alias for: deny @<name>)", severity="warning")
-                return
-            cat = self._resolve_category(arg)
-            if cat is None:
-                self.notify(f"Unknown category '{arg}'. Type 'cats' to list.", severity="warning")
-                return
-            self.classifier.set_cat_override(cat.name, True)
-            self.filter_engine.block_category(cat.name)
-            self._proxy_log(f"CATEGORY {cat.abbrev} {cat.name} → BLOCKED", force=True)
-            self.notify(f"⊘ {cat.abbrev} {cat.name} blocked")
-            self._save_rules()
-            self._cat_tick = 3
-
-        elif cmd == "unblock":
-            if not arg:
-                self.notify("Usage: unblock <name|abbrev>  (alias for: allow @<name>)", severity="warning")
-                return
-            cat = self._resolve_category(arg)
-            if cat is None:
-                self.notify(f"Unknown category '{arg}'. Type 'cats' to list.", severity="warning")
-                return
-            self.classifier.set_cat_override(cat.name, False)
-            self.filter_engine.unblock_category(cat.name)
-            self._proxy_log(f"CATEGORY {cat.abbrev} {cat.name} → explicitly allowed", force=True)
-            self.notify(f"✓ {cat.abbrev} {cat.name} allowed")
-            self._save_rules()
-            self._cat_tick = 3
-
-        elif cmd == "cats":
-            cats = sorted(
-                self.classifier.categories,
-                key=lambda c: (self._SEVERITY_RANK.get(c.severity, 4), c.name),
-            )
-            if not cats:
-                self._proxy_log(
-                    "No categories loaded. Start with --categories-file categories.toml",
-                    force=True,
-                )
-                return
-            lines = ["Categories:"]
-            for cat in cats:
-                is_blocked = self.classifier.is_category_blocked(cat.name)
-                override   = self.classifier.get_cat_override(cat.name)
-                if is_blocked:
-                    state = "BLOCK"
-                elif override is False:
-                    state = "ALLOW"   # explicit override of TOML default
-                else:
-                    state = "——"      # TOML default (allowed)
-                geo = f" {cat.geo_hint}" if cat.geo_hint else ""
-                lines.append(f"  {cat.abbrev}{geo} {cat.name} [{state}] — {cat.description}")
-            self._proxy_log("\n".join(lines), force=True)
 
         elif cmd == "throttle":
             await self._cmd_throttle(arg)
@@ -1552,20 +1435,6 @@ class ProxyApp(App):
             self.notify(f"Unknown command: '{cmd}'.  Press ? for help.", severity="warning")
 
     # ---- actions (key bindings) ----
-
-    def _resize_split(self, delta: int) -> None:
-        """Adjust the connections/log split by *delta* rows."""
-        table = self.query_one("#connections-table")
-        log   = self.query_one("#activity-log")
-        total = table.size.height + log.size.height
-        if total <= 6:
-            return
-        new_table = max(3, min(total - 3, table.size.height + delta))
-        table.styles.height = new_table
-        log.styles.height   = total - new_table
-
-    def action_split_up(self)   -> None: self._resize_split(-1)
-    def action_split_down(self) -> None: self._resize_split(1)
 
     def action_filter_scroll_up(self)   -> None:
         self.query_one("#filter-list", VerticalScroll).scroll_up()
@@ -1672,22 +1541,21 @@ class ProxyApp(App):
         """Prepend a deny rule for the selected host (removes allow if present), then kill."""
         conn_id = self._selected_conn_id()
         if conn_id is None:
-            self._proxy_log("DENY    — select a row first", force=True)
+            self.notify("DENY — select a row first", severity="warning")
             return
         conn = self._find_connection(conn_id)
         if conn is None:
-            self._proxy_log(f"DENY    #{conn_id} — not found", force=True)
+            self.notify(f"DENY — #{conn_id} not found", severity="warning")
             return
         host = conn.target_host
         existing = self.filter_engine.find_rule(host)
         if existing and existing.kind == RuleKind.DENY:
-            self._proxy_log(f"DENY    #{conn_id} {host} — already denied", force=True)
+            self.notify(f"{host} already denied", severity="warning")
             return
         if existing and existing.kind == RuleKind.ALLOW:
             self.filter_engine.remove_rule(host)
         self.filter_engine.prepend_rule(host, RuleKind.DENY)
-        self._proxy_log(f"DENY    #{conn_id} {host} — deny rule added", force=True)
-        self.notify(f"✗ deny {host}")
+        self._proxy_log(f"DENY    #{conn_id} {host}", force=True)
         self._save_rules()
         self._do_kill(conn_id)
 
@@ -1695,44 +1563,41 @@ class ProxyApp(App):
         """Prepend an allow rule for the selected host (removes deny if present)."""
         conn_id = self._selected_conn_id()
         if conn_id is None:
-            self._proxy_log("ALLOW   — select a row first", force=True)
+            self.notify("ALLOW — select a row first", severity="warning")
             return
         conn = self._find_connection(conn_id)
         if conn is None:
-            self._proxy_log(f"ALLOW   #{conn_id} — not found", force=True)
+            self.notify(f"ALLOW — #{conn_id} not found", severity="warning")
             return
         host = conn.target_host
         existing = self.filter_engine.find_rule(host)
         if existing and existing.kind == RuleKind.ALLOW:
-            self._proxy_log(f"ALLOW   #{conn_id} {host} — already allowed", force=True)
+            self.notify(f"{host} already allowed", severity="warning")
             return
         if existing and existing.kind == RuleKind.DENY:
             self.filter_engine.remove_rule(host)
         self.filter_engine.prepend_rule(host, RuleKind.ALLOW)
-        self._proxy_log(f"ALLOW   #{conn_id} {host} — allow rule added", force=True)
-        self.notify(f"✓ allow {host}")
+        self._proxy_log(f"ALLOW   #{conn_id} {host}", force=True)
         self._save_rules()
 
     def action_remove_rule_selected(self) -> None:
         """Remove the deny/allow rule for the selected host, if one exists."""
         conn_id = self._selected_conn_id()
         if conn_id is None:
-            self._proxy_log("REMOVE  — select a row first", force=True)
+            self.notify("REMOVE — select a row first", severity="warning")
             return
         conn = self._find_connection(conn_id)
         if conn is None:
-            self._proxy_log(f"REMOVE  #{conn_id} — not found", force=True)
+            self.notify(f"REMOVE — #{conn_id} not found", severity="warning")
             return
         host = conn.target_host
         existing = self.filter_engine.find_rule(host)
         if existing is None:
-            self._proxy_log(f"REMOVE  {host} — no rule", force=True)
             self.notify(f"No rule for {host}", severity="warning")
             return
         self.filter_engine.remove_rule(host)
-        kind_label = existing.kind.value  # "deny" or "allow"
-        self._proxy_log(f"REMOVE  {host} — {kind_label} rule removed", force=True)
-        self.notify(f"Removed {kind_label} rule: {host}")
+        kind_label = existing.kind.value
+        self._proxy_log(f"REMOVE  #{conn_id} {host} — {kind_label} rule removed", force=True)
         self._save_rules()
 
     def action_mark_selected(self) -> None:
@@ -1760,36 +1625,33 @@ class ProxyApp(App):
         self._proxy_log(f"[magenta]★ MARKED  #{conn_id} {target}{cat}[/]", force=True, markup=True)
 
     def _clipboard_copy(self, text: str) -> bool:
-        """Copy text to system clipboard. Returns True on success."""
-        env = os.environ.copy()
+        """Copy text to system clipboard. Returns True on success.
+
+        Strategy:
+          1. OSC 52 — terminal-native, no tools needed, works cross-platform
+             in modern terminals (Konsole, kitty, wezterm, Windows Terminal).
+          2. pyperclip — handles wl-copy/xclip/xsel/pbcopy/clip.exe per OS.
+        """
+        import base64
+
+        # 1. OSC 52: write to /dev/tty, bypassing Textual's output buffering.
         try:
-            if shutil.which("wl-copy"):
-                # Terminate previous wl-copy before starting a new one —
-                # prevents process accumulation on repeated Y presses.
-                if self._wl_copy_proc is not None:
-                    if self._wl_copy_proc.poll() is None:
-                        self._wl_copy_proc.terminate()
-                    self._wl_copy_proc.wait()
-                proc = subprocess.Popen(
-                    ["wl-copy"],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env=env,
-                )
-                if proc.stdin:
-                    proc.stdin.write(text.encode())
-                    proc.stdin.close()
-                self._wl_copy_proc = proc
-                return True
-            if shutil.which("xclip"):
-                subprocess.run(["xclip", "-selection", "clipboard"],
-                               input=text.encode(), check=False, timeout=2, env=env)
-                return True
-            if shutil.which("xsel"):
-                subprocess.run(["xsel", "--clipboard", "--input"],
-                               input=text.encode(), check=False, timeout=2, env=env)
-                return True
+            payload = base64.b64encode(text.encode()).decode()
+            osc52 = f"\033]52;c;{payload}\a".encode()
+            try:
+                with open("/dev/tty", "wb") as tty:
+                    tty.write(osc52)
+            except OSError:
+                os.write(1, osc52)
+            return True
+        except Exception:
+            pass
+
+        # 2. pyperclip: cross-platform fallback (uses OS clipboard tools).
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            return True
         except Exception as exc:
             self._proxy_log(f"[yellow]✂ COPY    — clipboard error: {exc}[/]", force=True, markup=True)
         return False
@@ -2023,6 +1885,51 @@ class ProxyApp(App):
     def action_clear_log(self) -> None:
         self.query_one("#activity-log", RichLog).clear()
 
+    def action_soft_reset(self) -> None:
+        """Clear closed connections, log, and cumulative counts; keep active connections."""
+        active_set = {c.id for c in self.tracker.active_connections}
+
+        # Remove closed connections from display structures.
+        table = self._w_table
+        for cid in list(self._display_order):
+            if cid not in active_set:
+                if cid in self._in_table:
+                    try:
+                        table.remove_row(str(cid))
+                    except Exception:
+                        pass
+                    self._in_table.discard(cid)
+                self._display_set.discard(cid)
+                self._last_statuses.pop(cid, None)
+                self._cell_display.pop(cid, None)
+                self._speed_prev.pop(cid, None)
+                self._speed_ema.pop(cid, None)
+                self._speed_display.pop(cid, None)
+        self._display_order = [cid for cid in self._display_order if cid in active_set]
+
+        # Reset tracker aggregates to reflect only active connections.
+        active_conns = list(self.tracker.active_connections)
+        self.tracker.total_connections = len(active_conns)
+        self.tracker.total_denied = 0
+        self.tracker.total_bytes_sent = 0
+        self.tracker.total_bytes_recv = 0
+
+        # Reset cumulative category counts to reflect only active connections.
+        self._cat_cumulative.clear()
+        for conn in active_conns:
+            if conn.category:
+                self._cat_cumulative[conn.category] = (
+                    self._cat_cumulative.get(conn.category, 0) + 1
+                )
+
+        # Clear the activity log and force a full refresh.
+        self.query_one("#activity-log", RichLog).clear()
+        self._stats_fingerprint = ()
+        self._categories_fingerprint = ()
+        self._refresh_stats(active_conns)
+        self._refresh_categories(active_conns)
+        self._proxy_log("[dim]↺ session reset[/]", force=True, markup=True)
+
     # ---- helpers ----
 
     async def _fetch_conn_info(
@@ -2116,6 +2023,18 @@ class ProxyApp(App):
             except Exception as exc:
                 lines.append(f"  GeoIP:   unavailable ({exc})")
 
+        # ---- Category info ----
+        if category and category != "unknown":
+            cat_obj = self.classifier._by_name.get(category)
+            if cat_obj:
+                sev = cat_obj.severity or "info"
+                cat_line = f"  Cat:     [{cat_obj.abbrev}] {cat_obj.name}  ({sev})"
+                if cat_obj.geo_hint:
+                    cat_line += f"  · {cat_obj.geo_hint}"
+                lines.append(cat_line)
+                if cat_obj.description:
+                    lines.append(f"           {cat_obj.description}")
+
         # ---- Emit to log ----
         cat_tag = f" [{category}]" if category and category != "unknown" else ""
         self._proxy_log(f"INFO    {tag}{cat_tag}", force=True)
@@ -2187,183 +2106,6 @@ class ProxyApp(App):
             self._proxy_log(f"DUMP → {path}", force=True)
         except OSError as exc:
             self._proxy_log(f"DUMP error: {exc}", force=True)
-
-    def _generate_pac(self, path: Path) -> None:
-        """Write a PAC file reflecting current filter rules and blocked categories."""
-        import datetime
-        proxy = f"{self.proxy_host}:{self.proxy_port}"
-        deny_rules  = [r for r in self.filter_engine.rules if r.kind == RuleKind.DENY]
-        allow_rules = [r for r in self.filter_engine.rules if r.kind == RuleKind.ALLOW]
-        blocked_cats = [
-            c for c in self.classifier.categories
-            if self.classifier.is_category_blocked(c.name)
-        ]
-
-        out: list[str] = [
-            f"// Generated by sockLight — SOCKS5 Dev Proxy — {datetime.date.today()}",
-            f"// Proxy: SOCKS5 {proxy}  |  Mode: {self.filter_engine.mode.value}",
-            "//",
-            "// Usage:",
-            f"//   chromium --proxy-pac-url=\"file://{path.resolve()}\"",
-            f"//   firefox  --proxy-server=\"pac+file://{path.resolve()}\"",
-            "",
-            "function FindProxyForURL(url, host) {",
-            "    host = host.toLowerCase();",
-            "",
-        ]
-
-        def _pat(rule) -> str:
-            if rule.port:
-                return (
-                    f'shExpMatch(host, "{rule.pattern}") && '
-                    f'url.indexOf(":{rule.port}") !== -1'
-                )
-            return f'shExpMatch(host, "{rule.pattern}")'
-
-        if deny_rules:
-            out.append("    // Deny rules")
-            for r in deny_rules:
-                out.append(f'    if ({_pat(r)}) return "PROXY 127.0.0.1:1";')
-            out.append("")
-
-        if blocked_cats:
-            out.append("    // Blocked categories")
-            for cat in blocked_cats:
-                out.append(f"    // {cat.abbrev}  {cat.name} — {cat.description}")
-                for pat in cat.patterns:
-                    out.append(f'    if (shExpMatch(host, "{pat}")) return "PROXY 127.0.0.1:1";')
-            out.append("")
-
-        if allow_rules:
-            out.append("    // Allow rules — bypass proxy")
-            for r in allow_rules:
-                out.append(f'    if ({_pat(r)}) return "DIRECT";')
-            out.append("")
-
-        out.append("    // Default policy")
-        if self.filter_engine.mode == FilterMode.DENYLIST:
-            out.append(f'    return "SOCKS5 {proxy}";')
-        else:
-            out.append(f'    return "PROXY 127.0.0.1:1";  // ALLOWLIST — block by default')
-        out.append("}")
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("\n".join(out) + "\n")
-
-    def _generate_privoxy(self, base: Path) -> tuple[Path, Path]:
-        """Write a Privoxy user.action file and a config snippet.
-
-        Returns (action_path, conf_path).
-
-        Pattern translation:
-          *.example.com  →  .example.com   (Privoxy dot-prefix = domain + all subdomains)
-          sub.example.com → sub.example.com (exact host, unchanged)
-          *.google.com.* and *.amazon.*    →  cannot translate (wildcard TLD); written as comments
-        """
-        import datetime
-
-        def _to_privoxy(pat: str) -> str | None:
-            """Convert one fnmatch pattern to Privoxy format.  None = not translatable."""
-            p = pat.strip().lower()
-            # Multi-TLD wildcard (e.g. *.google.com.* or *.amazon.*) — not supported
-            if p.count("*") >= 2:
-                return None
-            if p.startswith("*."):
-                return "." + p[2:]   # *.example.com → .example.com
-            return p                  # exact or sub.example.com unchanged
-
-        deny_rules   = [r for r in self.filter_engine.rules if r.kind == RuleKind.DENY]
-        allow_rules  = [r for r in self.filter_engine.rules if r.kind == RuleKind.ALLOW]
-        blocked_cats = [
-            c for c in self.classifier.categories
-            if self.classifier.is_category_blocked(c.name)
-        ]
-        proxy        = f"{self.proxy_host}:{self.proxy_port}"
-        today        = datetime.date.today()
-
-        # ── user.action ────────────────────────────────────────────────────
-        act: list[str] = [
-            f"# Privoxy user.action — generated by sockLight — SOCKS5 Dev Proxy {today}",
-            f"# SOCKS5 proxy: {proxy}  |  mode: {self.filter_engine.mode.value}",
-            "#",
-            "# Load this file in Privoxy config:",
-            "#   actionsfile user.action",
-            "#",
-            "# To forward all traffic to the SOCKS5 proxy add to Privoxy config:",
-            f"#   forward-socks5t   /   {proxy}   .",
-            "",
-        ]
-
-        # Default policy based on filter mode
-        if self.filter_engine.mode == FilterMode.ALLOWLIST:
-            act += [
-                "# ALLOWLIST mode — block everything by default, then allow exceptions",
-                "{ +block{default: allowlist mode} }",
-                "/",
-                "",
-            ]
-
-        # Deny rules → block
-        if deny_rules:
-            act.append("# ── Deny rules ──────────────────────────────────────────────────────")
-            act.append("{ +block{deny rule} }")
-            for r in deny_rules:
-                pv = _to_privoxy(r.pattern)
-                if pv:
-                    suffix = f":{r.port}" if r.port else ""
-                    act.append(f"{pv}{suffix}")
-                else:
-                    act.append(f"# UNSUPPORTED (multi-wildcard TLD): {r.pattern}")
-            act.append("")
-
-        # Blocked categories → block sections
-        if blocked_cats:
-            act.append("# ── Blocked categories ──────────────────────────────────────────────")
-            for cat in blocked_cats:
-                act.append(f"# {cat.abbrev}  {cat.name} — {cat.description}")
-                act.append(f"{{ +block{{{cat.name}: {cat.abbrev}}} }}")
-                for pat in cat.patterns:
-                    pv = _to_privoxy(pat)
-                    if pv:
-                        act.append(pv)
-                    else:
-                        act.append(f"# UNSUPPORTED (multi-wildcard TLD): {pat}")
-                act.append("")
-
-        # Allow rules → -block (override blocks above)
-        if allow_rules:
-            act.append("# ── Allow rules (override blocks) ───────────────────────────────────")
-            act.append("{ -block }")
-            for r in allow_rules:
-                pv = _to_privoxy(r.pattern)
-                if pv:
-                    suffix = f":{r.port}" if r.port else ""
-                    act.append(f"{pv}{suffix}")
-                else:
-                    act.append(f"# UNSUPPORTED (multi-wildcard TLD): {r.pattern}")
-            act.append("")
-
-        # ── config snippet ─────────────────────────────────────────────────
-        conf: list[str] = [
-            f"# Privoxy config snippet — generated by sockLight — SOCKS5 Dev Proxy {today}",
-            "#",
-            "# Add these lines to your Privoxy config file (usually /etc/privoxy/config",
-            "# or ~/.privoxy/config), then reload Privoxy.",
-            "",
-            "# Forward all traffic to SOCKS5 dev proxy",
-            f"forward-socks5t   /   {proxy}   .",
-            "",
-            "# Load the exported action rules",
-            f"actionsfile {base.stem}.action",
-        ]
-
-        action_path = base.with_suffix(".action")
-        conf_path   = base.with_suffix(".conf.snippet")
-
-        base.parent.mkdir(parents=True, exist_ok=True)
-        action_path.write_text("\n".join(act) + "\n")
-        conf_path.write_text("\n".join(conf) + "\n")
-        return action_path, conf_path
 
     def _save_rules(self, report: bool = False) -> None:
         """Write current rules back to rules_file (if one is set)."""

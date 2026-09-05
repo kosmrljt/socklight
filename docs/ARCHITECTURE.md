@@ -12,21 +12,23 @@ category, and export rules for Privoxy.
 ## Module overview
 
 ```
-proxy/cli.py            CLI arguments, main(), entry point after pip install
-run.py                  development wrapper (calls proxy.cli:main)
-proxy/
-  socks5.py             SOCKS5 protocol (handshake, request parsing)
-  server.py             TCP listener, allow/deny decision, connection lifecycle
-  relay.py              bidirectional byte transfer between client and target
-  tracker.py            tracking of active and closed connections (stats, history)
-  classifier.py         domain classification into categories (trie + RE)
-  filters.py            allow/deny rules for domains and categories
-  throttle.py           bandwidth and latency limiting
-  tui.py                Textual TUI — dashboard, commands, display
-proxy/data/
+socklight/cli.py            CLI arguments, main(), entry point after pip install
+run.py                      development wrapper (calls socklight.cli:main)
+socklight/
+  socks5.py                 SOCKS5 protocol (handshake, request parsing)
+  server.py                 TCP listener, allow/deny decision, connection lifecycle
+  relay.py                  bidirectional byte transfer between client and target
+  tracker.py                tracking of active and closed connections (stats, history)
+  classifier.py             domain classification into categories (trie + RE)
+  filters.py                allow/deny rules for domains and categories
+  throttle.py               bandwidth and latency limiting
+  tui.py                    Textual ProxyApp — dashboard, commands, tick loop
+  tui_screens.py            HelpScreen, CatsScreen, category display helpers
+  tui_exporters.py          PAC / Privoxy / Adblock export functions
+socklight/data/
   categories-simple.toml   10 broad categories (built-in preset)
   categories-full.toml     32 detailed categories (built-in preset, default)
-rules/                  user rules files (saved settings, not part of the package)
+rules/                      user rules files (saved settings, not part of the package)
 ```
 
 ---
@@ -69,7 +71,7 @@ Implements the [RFC 1928](https://www.rfc-editor.org/rfc/rfc1928) handshake:
 2. Client sends: request (CONNECT + target domain/IP + port)
 3. Proxy replies: success or error
 
-Result is a `Socks5Request` object with fields `host`, `port`, `target` (for display).
+Result is a `ConnectRequest` object with fields `address_type`, `host`, `port`.
 The module knows nothing about allow/deny — it only parses the protocol.
 
 ---
@@ -185,7 +187,8 @@ Rule format: `throttle *.slow.com 200k`, `throttle @analytics down:100k up:2m de
 
 ### tui.py — Textual dashboard
 
-Largest module (~2400 lines). Built with [Textual](https://textual.textualize.io/).
+Core module (~2140 lines). Built with [Textual](https://textual.textualize.io/).
+Screen widgets live in `tui_screens.py`; export helpers in `tui_exporters.py`.
 
 **Layout:**
 ```
@@ -215,7 +218,9 @@ displayed in KB/s, hidden below 1 KB/s.
 - `throttle <host|@cat> <speed>` — bandwidth limiting
 - `mode denylist|allowlist` — switch mode
 - `save [path]` — save rules
-- `save privoxy [path]` — export Privoxy configuration
+- `save pac [path]` — export PAC file for browser proxy configuration
+- `save privoxy [path]` — export Privoxy action + config snippet
+- `save adblock [path]` — export Adblock Plus / uBlock Origin filter list
 
 ---
 

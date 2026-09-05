@@ -5,7 +5,7 @@ See every outbound connection your app or container makes — hosts, categories,
 ## 1. Start sockLight
 
 ```bash
-socklight                              # 32 categories loaded automatically
+socklight                              # 34 categories loaded automatically
 socklight --rules-file rules/dev.rules # with saved rules from a previous session
 ```
 
@@ -46,14 +46,20 @@ The connections table updates every second. Press `H` to show closed connections
 
 Each row shows: status, category (from TOML), hostname:port, live KB/s, cumulative bytes.
 
-Press `I` on any row for a DNS + GeoIP lookup:
+Press `I` on any row for a DNS + GeoIP lookup and category details:
 
 ```
-#9 analytics.google.com:443
+#9 analytics.google.com:443 [analytics]
   IP:      142.250.185.206
   rDNS:    fra24s06-in-f14.1e100.net
-  GeoIP:   🇺🇸 United States, Mountain View  AS15169 Google LLC
+  Country: 🇺🇸 Mountain View, California, United States
+  ISP/Org: Google LLC
+  ASN:     AS15169 Google LLC
+  Cat:     [ANA] analytics  (medium)
+           Web analytics and user behaviour tracking
 ```
+
+The lookup runs in the background (DNS can take a few seconds). sockLight does not decrypt HTTPS traffic — it sees the hostname via SOCKS5h DNS and byte counts only.
 
 ## 4. Block what you don't want
 

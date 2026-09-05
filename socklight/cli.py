@@ -33,14 +33,15 @@ def _check_dependencies() -> None:
 
 
 def _check_port(host: str, port: int) -> None:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    sock = socket.socket(family, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         sock.bind((host, port))
     except OSError as exc:
         if exc.errno == errno.EADDRINUSE:
             print(f"Error: port {port} is already in use.", file=sys.stderr)
-            print(f"Kill the existing process or use --port to choose another.", file=sys.stderr)
+            print("Kill the existing process or use --port to choose another.", file=sys.stderr)
             sys.exit(1)
         raise
     finally:
@@ -203,8 +204,8 @@ def _run_headless(args, categories_file: str | None) -> None:
         try:
             n = engine.load_rules_file(args.rules_file)
             nt = throttle_engine.load_from_rules_file(args.rules_file)
-            for name in engine.blocked_categories:
-                classifier.set_blocked(name, True)
+            for name, state in engine.cat_overrides.items():
+                classifier.set_cat_override(name, state)
             cats = len(engine.blocked_categories)
             throttle_msg = f", {nt} throttle rule(s)" if nt else ""
             log(f"RULES loaded {n} rule(s), {cats} blocked category/ies{throttle_msg} from {args.rules_file}")
