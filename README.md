@@ -172,5 +172,4 @@ It reports hostnames, ports and transfer volume — not request bodies. If you n
 
 MIT © Tomaž Košmrlj
 
----
 Built through iterative pair programming with [Claude](https://claude.ai) (Anthropic).
