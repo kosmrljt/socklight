@@ -17,16 +17,6 @@ Point your containers or tools at it and see every outbound connection in real t
 - **Categories.** 34 pre-defined groups (advertising, telemetry, fingerprinting, CDN, …). One command blocks an entire category at once.
 - **Live speed per connection.** Distinguish "broken" from "extremely slow" at a glance — useful when a build or API call hangs silently with no error message.
 
-### How it compares
-
-|  | sockLight | mitmproxy | Wireshark | OpenSnitch |
-|---|---|---|---|---|
-| Sees HTTPS payload | ✗ | ✓ (needs CA cert) | ✓ (raw packets) | ✗ |
-| Needs CA certificate | ✗ | ✓ | ✗ | ✗ |
-| Needs root / firewall rules | ✗ | ✗ | ✓ | ✓ |
-| Live block / throttle rules | ✓ | ✓ | ✗ | ✓ |
-| Works with containers | ✓ | ✓ | partial | ✗ |
-| Hostname visible (not IP) | ✓ | ✓ | ✗ | partial |
 
 If you need to inspect or rewrite request bodies, use mitmproxy instead and accept the CA installation that comes with it.
 
