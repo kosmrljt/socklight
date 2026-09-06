@@ -10,15 +10,16 @@ Point your containers or tools at it and see every outbound connection in real t
 ## Why
 
 - **No certificate installation, no HTTPS decryption.** sockLight sees where a connection goes and how much moves through it — never the payload. Works with any app, container, or CLI tool out of the box: no custom CA, no per-app trust store, no certificate pinning failures.
-- **Works directly with any SOCKS5h client.** `curl`, `wget`, Firefox, Podman/Docker containers — set `ALL_PROXY=socks5h://...` and you're done. Tools that only speak HTTP proxy (`pip`, `npm`, AI agents) need a one-line Privoxy bridge — see [Works well with dev-sandbox](#works-well-with-dev-sandbox).
+- **Works directly with any SOCKS5h client.** `curl`, `wget`, Firefox, Podman/Docker containers — set `ALL_PROXY=socks5h://...` and you're done. Tools that only speak HTTP proxy (`pip`, `npm`, Claude Code, most AI agents) need a one-line Privoxy bridge — see [Works well with dev-sandbox](#works-well-with-dev-sandbox).
 - **Hostnames, not IPs.** Because apps route DNS through the proxy (`socks5h://`), you see `analytics.google.com` in the dashboard, not `142.250.74.100`.
 - **Runs as a normal user.** No root, no firewall rules, no system-wide changes. Start it, point your app at it, stop it.
 - **Block and throttle without restarting.** Rules take effect on active connections immediately — no app restart, no reconnect.
 - **Categories.** 34 pre-defined groups (advertising, telemetry, fingerprinting, CDN, …). One command blocks an entire category at once.
 - **Live speed per connection.** Distinguish "broken" from "extremely slow" at a glance — useful when a build or API call hangs silently with no error message.
 
+### Not a mitmproxy replacement
 
-If you need to inspect or rewrite request bodies, use mitmproxy instead and accept the CA installation that comes with it.
+sockLight deliberately stops at the connection level: hostname, port, bytes, speed. If you need to inspect or rewrite request bodies, use [mitmproxy](https://mitmproxy.org) instead and accept the CA installation that comes with it.
 
 ## Quick start
 
@@ -50,8 +51,6 @@ podman run --rm -it -e ALL_PROXY=socks5h://host.containers.internal:1080 python:
 For Firefox: Settings → Network Settings → Manual proxy → SOCKS Host `127.0.0.1`, Port `1080`, SOCKS v5, and tick **Proxy DNS when using SOCKS v5**.
 
 The `h` in `socks5h://` and the Firefox DNS checkbox do the same thing: they make the proxy resolve names, so the dashboard shows hostnames instead of IP addresses.
-
-Tools that speak only HTTP proxy (`pip`, `npm`, Claude Code, most AI agents) need a bridge — see [Works well with dev-sandbox](#works-well-with-dev-sandbox) below.
 
 First run without a rules file: type `deny @advertising` → `save` inside the TUI. sockLight creates the rules file on first save.
 
@@ -151,6 +150,8 @@ Use `save privoxy` to export your current sockLight rules into Privoxy format an
 ## Not for production
 
 sockLight is a development tool: no authentication, no encryption between client and proxy, not designed for high throughput or multi-user access.
+
+It also [binds to `0.0.0.0` by default](#quick-start) so containers can reach it. On a shared or untrusted network, start it with `--host 127.0.0.1`.
 
 ## Documentation
 
