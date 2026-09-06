@@ -826,7 +826,8 @@ class ProxyApp(App):
         except Exception:
             pass
 
-    def _table_restore_cursor(self, table, saved_id: int | None, saved_scroll: float) -> None:
+    def _table_restore_cursor(self, table, saved_id: int | None, saved_visual_offset: float) -> None:
+        """Restore cursor to the same connection and keep its visual position in the viewport."""
         if table.row_count == 0:
             return
 
@@ -849,8 +850,10 @@ class ProxyApp(App):
         if table.cursor_row != target_row:
             table.move_cursor(row=target_row, animate=False, scroll=False)
 
-        if abs(table.scroll_y - saved_scroll) > 0.1:
-            table.scroll_to(y=saved_scroll, animate=False)
+        # Keep the selected row at the same visual position within the viewport.
+        desired_scroll = max(0.0, target_row - saved_visual_offset)
+        if abs(table.scroll_y - desired_scroll) > 0.1:
+            table.scroll_to(y=desired_scroll, animate=False)
 
     def _refresh_table(self, active: list, history: list) -> None:
         """Stable-order table refresh — rows never move, status/colour updates in place.
@@ -888,8 +891,8 @@ class ProxyApp(App):
         if self._show_history != self._last_show_history:
             self._last_show_history = self._show_history
             self._last_throttle_v   = throttle_v
-            saved_id     = self._selected_conn_id()
-            saved_scroll = table.scroll_y
+            saved_id             = self._selected_conn_id()
+            saved_visual_offset  = table.cursor_row - table.scroll_y
             table.clear()
             self._in_table.clear()
             self._speed_display.clear()
@@ -904,14 +907,14 @@ class ProxyApp(App):
                 self._last_statuses[cid] = all_conns[cid].status
             self._display_order = new_order
             self._display_set   = set(new_order)
-            self._table_restore_cursor(table, saved_id, saved_scroll)
+            self._table_restore_cursor(table, saved_id, saved_visual_offset)
             return
 
         # ── 3. Prune connections that fell off the history deque ──────────
         gone = [cid for cid in self._display_order if cid not in all_known]
-        struct_changed = bool(gone)
-        saved_id     = self._selected_conn_id() if struct_changed else None
-        saved_scroll = table.scroll_y            if struct_changed else 0.0
+        struct_changed       = bool(gone)
+        saved_id             = self._selected_conn_id() if struct_changed else None
+        saved_visual_offset  = (table.cursor_row - table.scroll_y) if struct_changed else 0.0
         if gone:
             gone_set = set(gone)
             for cid in gone:
@@ -941,18 +944,18 @@ class ProxyApp(App):
             if should_show and not is_shown:
                 # Became visible (e.g., connection re-appeared — rare edge case)
                 if not struct_changed:
-                    saved_id     = self._selected_conn_id()
-                    saved_scroll = table.scroll_y
-                    struct_changed = True
+                    saved_id            = self._selected_conn_id()
+                    saved_visual_offset = table.cursor_row - table.scroll_y
+                    struct_changed      = True
                 self._table_add_row(table, conn, throttle_v, server)
                 self._in_table.add(cid)
                 self._last_statuses[cid] = conn.status
             elif not should_show and is_shown:
                 # No longer visible (H=False and connection closed)
                 if not struct_changed:
-                    saved_id     = self._selected_conn_id()
-                    saved_scroll = table.scroll_y
-                    struct_changed = True
+                    saved_id            = self._selected_conn_id()
+                    saved_visual_offset = table.cursor_row - table.scroll_y
+                    struct_changed      = True
                 try:
                     table.remove_row(str(cid))
                 except Exception:
@@ -966,7 +969,7 @@ class ProxyApp(App):
 
         # Restore cursor after any structural change so it stays on the same connection.
         if struct_changed:
-            self._table_restore_cursor(table, saved_id, saved_scroll)
+            self._table_restore_cursor(table, saved_id, saved_visual_offset)
 
         # ── 5. Throttle column update ─────────────────────────────────────
         if throttle_v != self._last_throttle_v:
