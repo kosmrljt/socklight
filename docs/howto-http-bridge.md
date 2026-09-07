@@ -16,6 +16,8 @@ socklight
 # One-liner: pipe a minimal config via stdin — no config file needed
 echo 'forward-socks5 / 127.0.0.1:1080 .' | privoxy --no-daemon /dev/stdin &
 
+export http_proxy=http://127.0.0.1:8118
+export https_proxy=http://127.0.0.1:8118
 export HTTP_PROXY=http://127.0.0.1:8118
 export HTTPS_PROXY=http://127.0.0.1:8118
 
@@ -34,6 +36,8 @@ To stop Privoxy when done: `kill %1` or `pkill privoxy`.
 printf 'forward-socks5 / 127.0.0.1:1080 .\nlisten-address 127.0.0.1:9999\n' \
   | privoxy --no-daemon /dev/stdin &
 
+export http_proxy=http://127.0.0.1:9999
+export https_proxy=http://127.0.0.1:9999
 export HTTP_PROXY=http://127.0.0.1:9999
 export HTTPS_PROXY=http://127.0.0.1:9999
 ```
