@@ -17,7 +17,6 @@ TUI commands
   reload                    Re-read the rules file (if one was loaded)
   loglevel all|connections|denied|errors|none
                             Change what the log shows
-  cats                      List all categories
   dump [path]               Save connections + log to a file (snapshot)
   clear                     Clear all rules
   quit / exit               Shut down
@@ -293,7 +292,7 @@ _CMD_SUGGESTIONS = SuggestFromList(
         "loglevel all", "loglevel connections", "loglevel denied",
         "loglevel errors", "loglevel none",
         "throttle ", "throttles", "throttles clear",
-        "cats", "reload", "clear", "clear deny", "clear allow", "dump",
+        "reload", "clear", "clear deny", "clear allow", "dump",
         "save ", "save pac ", "save privoxy ", "save adblock ", "kill ", "help", "quit",
     ],
     case_sensitive=False,
@@ -595,6 +594,14 @@ class ProxyApp(App):
                 self._proxy_log(f"CATEGORIES error: {exc}", force=True)
         self._refresh_categories([])  # show immediately, don't wait for first tick
         self._cat_tick = 0
+
+        # Widen right panel so category names never wrap — computed once from longest name.
+        if self.classifier.categories:
+            max_name_len = max(len(c.name) for c in self.classifier.categories)
+            max_geo_len  = max((len(c.geo_hint) + 1 if c.geo_hint else 0) for c in self.classifier.categories)
+            # 2 indent + 5 abbrev + 3 marker + geo + name + 8 max-count
+            needed_w = 2 + 5 + 3 + max_geo_len + max_name_len + 8
+            self.query_one("#right-panel").styles.min_width = max(32, needed_w)
 
         self.run_worker(self._run_proxy(), exclusive=True, thread=False)
         self.set_interval(1.0, self._refresh_ui)
@@ -944,16 +951,13 @@ class ProxyApp(App):
             is_shown    = cid in self._in_table
 
             if should_show and not is_shown:
-                # Became visible (e.g., connection re-appeared — rare edge case)
-                if not struct_changed:
-                    saved_id            = self._selected_conn_id()
-                    saved_visual_offset = table.cursor_row - table.scroll_y
-                    struct_changed      = True
+                # New row appended at the bottom — does not shift existing row indices,
+                # so cursor position is unaffected and no restore is needed.
                 self._table_add_row(table, conn, throttle_v, server)
                 self._in_table.add(cid)
                 self._last_statuses[cid] = conn.status
             elif not should_show and is_shown:
-                # No longer visible (H=False and connection closed)
+                # Row removed — existing indices above may shift, cursor restore needed.
                 if not struct_changed:
                     saved_id            = self._selected_conn_id()
                     saved_visual_offset = table.cursor_row - table.scroll_y
@@ -1083,6 +1087,7 @@ class ProxyApp(App):
         self._categories_fingerprint = new_fp
 
         _SEV_LABEL = {"high": "── high ──", "medium": "── medium ──", "low": "── low ──", "info": "── info ──"}
+
         lines = []
         prev_sev = None
         for cat in cats:
@@ -1262,7 +1267,7 @@ class ProxyApp(App):
             if arg.startswith("@"):
                 cat = self._resolve_category(arg[1:])
                 if cat is None:
-                    self.notify(f"Unknown category '{arg[1:]}'. Type 'cats' to list.", severity="warning")
+                    self.notify(f"Unknown category '{arg[1:]}'. Press F2 to list.", severity="warning")
                     return
                 self.classifier.set_cat_override(cat.name, True)
                 self.filter_engine.block_category(cat.name)
@@ -1281,7 +1286,7 @@ class ProxyApp(App):
             if arg.startswith("@"):
                 cat = self._resolve_category(arg[1:])
                 if cat is None:
-                    self.notify(f"Unknown category '{arg[1:]}'. Type 'cats' to list.", severity="warning")
+                    self.notify(f"Unknown category '{arg[1:]}'. Press F2 to list.", severity="warning")
                     return
                 self.classifier.set_cat_override(cat.name, False)
                 self.filter_engine.unblock_category(cat.name)
@@ -1300,7 +1305,7 @@ class ProxyApp(App):
             if arg.startswith("@"):
                 cat = self._resolve_category(arg[1:])
                 if cat is None:
-                    self.notify(f"Unknown category '{arg[1:]}'. Type 'cats' to list.", severity="warning")
+                    self.notify(f"Unknown category '{arg[1:]}'. Press F2 to list.", severity="warning")
                     return
                 self.classifier.set_cat_override(cat.name, None)
                 self.filter_engine.reset_category(cat.name)
@@ -1435,9 +1440,6 @@ class ProxyApp(App):
                 for cat_name, r in sorted(cat_rules.items()):
                     lines.append(f"  @{cat_name}  {r.summary()}")
                 self._proxy_log("\n".join(lines), force=True)
-
-        elif cmd == "cats":
-            self.action_show_cats()
 
         elif cmd in ("help", "?"):
             self.push_screen(HelpScreen())
@@ -1723,7 +1725,7 @@ class ProxyApp(App):
             cat = self._resolve_category(target[1:])
             if cat is None:
                 self.notify(
-                    f"Unknown category '{target[1:]}'. Type 'cats' to list.",
+                    f"Unknown category '{target[1:]}'. Press F2 to list.",
                     severity="warning",
                 )
                 return
@@ -1901,49 +1903,46 @@ class ProxyApp(App):
         self.query_one("#activity-log", RichLog).clear()
 
     def action_soft_reset(self) -> None:
-        """Clear closed connections, log, and cumulative counts; keep active connections."""
+        """Clear closed connections and log; reset aggregate counters; keep active connections intact."""
         self.tracker.clear_history()
         active_set = {c.id for c in self.tracker.active_connections}
 
-        # Remove closed connections from display structures.
+        # Clear the whole table and rebuild with only active rows.
+        # Calling remove_row() 290 times blocks the event loop for seconds on a
+        # busy session — table.clear() + a handful of add_row() calls is O(1).
         table = self._w_table
+        saved_id            = self._selected_conn_id()
+        saved_visual_offset = table.cursor_row - table.scroll_y
+        table.clear()
+        self._in_table.clear()
+        self._speed_display.clear()
+
+        # Drop per-connection state for closed connections.
         for cid in list(self._display_order):
             if cid not in active_set:
-                if cid in self._in_table:
-                    try:
-                        table.remove_row(str(cid))
-                    except Exception:
-                        pass
-                    self._in_table.discard(cid)
                 self._display_set.discard(cid)
                 self._last_statuses.pop(cid, None)
                 self._cell_display.pop(cid, None)
                 self._speed_prev.pop(cid, None)
                 self._speed_ema.pop(cid, None)
-                self._speed_display.pop(cid, None)
         self._display_order = [cid for cid in self._display_order if cid in active_set]
 
-        # Reset tracker aggregates to reflect only active connections.
+        # Re-populate the table with the surviving active rows.
         active_conns = list(self.tracker.active_connections)
+        server    = self._server
+        throttle_v = server.throttle_version if server else 0
+        active_by_id = {c.id: c for c in active_conns}
+        for cid in self._display_order:
+            conn = active_by_id.get(cid)
+            if conn is not None:
+                self._table_add_row(table, conn, throttle_v, server)
+                self._in_table.add(cid)
+                self._last_statuses[cid] = conn.status
+        self._table_restore_cursor(table, saved_id, saved_visual_offset)
         self.tracker.total_connections = len(active_conns)
         self.tracker.total_denied = 0
         self.tracker.total_bytes_sent = 0
         self.tracker.total_bytes_recv = 0
-
-        # Reset byte counters on active connections so traffic display starts at 0.
-        # Also reset speed state to avoid a negative-delta spike on the next tick.
-        _now = time.monotonic()
-        for conn in active_conns:
-            conn.bytes_sent = 0
-            conn.bytes_recv = 0
-            self._speed_prev[conn.id] = (_now, 0, 0)
-            self._speed_ema.pop(conn.id, None)
-            self._speed_display.pop(conn.id, None)
-            try:
-                table.update_cell(str(conn.id), "up", "", update_width=False)
-                table.update_cell(str(conn.id), "dn", "", update_width=False)
-            except Exception:
-                pass
 
         # Reset cumulative category counts to reflect only active connections.
         self._cat_cumulative.clear()

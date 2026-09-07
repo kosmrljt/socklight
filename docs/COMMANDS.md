@@ -26,7 +26,6 @@ Use full name or abbreviation (case-insensitive): `@advertising` = `@ADV`
 deny   @advertising          block all connections in this category
 allow  @analytics            explicitly allow (useful in allowlist mode)
 remove @advertising          clear override — back to default allow
-cats                         list all categories with current status
 ```
 
 Press `F2` in TUI for a formatted category reference sorted by severity.

@@ -361,7 +361,7 @@ class ProxyServer:
 
                 # ---- Classify connection ----
                 cat = self.classifier.classify(request.host)
-                cat_tag = f" [{cat.name}]" if cat.name != "unknown" else ""
+                cat_tag = f" [{cat.abbrev}]" if cat.name != "unknown" else ""
 
                 # ---- Register in tracker (before any deny so it's visible in TUI) ----
                 conn = self.tracker.open_connection(
