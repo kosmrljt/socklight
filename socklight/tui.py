@@ -34,8 +34,10 @@ LogLevel — what gets shown
 from __future__ import annotations
 
 import enum
+import fnmatch
 import json
 import os
+import re
 import socket
 import sys
 import time
@@ -291,7 +293,7 @@ _CMD_SUGGESTIONS = SuggestFromList(
         "loglevel all", "loglevel connections", "loglevel denied",
         "loglevel errors", "loglevel none",
         "throttle ", "throttles", "throttles clear",
-        "reload", "clear", "clear deny", "clear allow", "dump",
+        "cats", "reload", "clear", "clear deny", "clear allow", "dump",
         "save ", "save pac ", "save privoxy ", "save adblock ", "kill ", "help", "quit",
     ],
     case_sensitive=False,
@@ -1296,10 +1298,13 @@ class ProxyApp(App):
                 self.notify("Usage: remove <pattern>  or  remove @<name|abbrev>", severity="warning")
                 return
             if arg.startswith("@"):
-                cat_name = arg[1:].strip().lower()
-                self.classifier.set_cat_override(cat_name, None)
-                self.filter_engine.reset_category(cat_name)
-                self._proxy_log(f"CATEGORY {cat_name} → reset to TOML default", force=True)
+                cat = self._resolve_category(arg[1:])
+                if cat is None:
+                    self.notify(f"Unknown category '{arg[1:]}'. Type 'cats' to list.", severity="warning")
+                    return
+                self.classifier.set_cat_override(cat.name, None)
+                self.filter_engine.reset_category(cat.name)
+                self._proxy_log(f"CATEGORY {cat.abbrev} {cat.name} → reset to TOML default", force=True)
                 self._save_rules()
                 self._cat_tick = 3
             else:
@@ -1430,6 +1435,9 @@ class ProxyApp(App):
                 for cat_name, r in sorted(cat_rules.items()):
                     lines.append(f"  @{cat_name}  {r.summary()}")
                 self._proxy_log("\n".join(lines), force=True)
+
+        elif cmd == "cats":
+            self.action_show_cats()
 
         elif cmd in ("help", "?"):
             self.push_screen(HelpScreen())
@@ -1838,16 +1846,20 @@ class ProxyApp(App):
         if self._server is None:
             return 0
         updated = 0
+        pat_re = re.compile(fnmatch.translate(pattern), re.IGNORECASE)
         for conn in self.tracker.active_connections:
             if removed:
-                # Re-evaluate effective throttle now that the rule is gone.
-                # A category rule may now apply as fallback.
+                # Only re-evaluate connections that could have matched the removed rule.
+                if not pat_re.match(conn.target_host.lower()):
+                    continue
+                # Re-evaluate: a category rule may now apply as fallback.
                 effective = self.throttle_engine.match(conn.target_host, conn.category)
-                if effective is None:
-                    self._server.set_conn_throttle(conn.id, None, None)
-                else:
-                    self._server.set_conn_throttle(conn.id, effective.download_bps, effective.upload_bps)
-                updated += 1
+                new_down = effective.download_bps if effective else None
+                new_up   = effective.upload_bps   if effective else None
+                state = self._server.get_conn_throttle(conn.id)
+                if state is not None and (state.download_bps != new_down or state.upload_bps != new_up):
+                    self._server.set_conn_throttle(conn.id, new_down, new_up)
+                    updated += 1
             else:
                 # Rule was added/updated — apply if this connection's host matches it.
                 matched = self.throttle_engine.match(conn.target_host)
@@ -1890,6 +1902,7 @@ class ProxyApp(App):
 
     def action_soft_reset(self) -> None:
         """Clear closed connections, log, and cumulative counts; keep active connections."""
+        self.tracker.clear_history()
         active_set = {c.id for c in self.tracker.active_connections}
 
         # Remove closed connections from display structures.
@@ -1917,6 +1930,21 @@ class ProxyApp(App):
         self.tracker.total_bytes_sent = 0
         self.tracker.total_bytes_recv = 0
 
+        # Reset byte counters on active connections so traffic display starts at 0.
+        # Also reset speed state to avoid a negative-delta spike on the next tick.
+        _now = time.monotonic()
+        for conn in active_conns:
+            conn.bytes_sent = 0
+            conn.bytes_recv = 0
+            self._speed_prev[conn.id] = (_now, 0, 0)
+            self._speed_ema.pop(conn.id, None)
+            self._speed_display.pop(conn.id, None)
+            try:
+                table.update_cell(str(conn.id), "up", "", update_width=False)
+                table.update_cell(str(conn.id), "dn", "", update_width=False)
+            except Exception:
+                pass
+
         # Reset cumulative category counts to reflect only active connections.
         self._cat_cumulative.clear()
         for conn in active_conns:
@@ -1925,8 +1953,9 @@ class ProxyApp(App):
                     self._cat_cumulative.get(conn.category, 0) + 1
                 )
 
-        # Clear the activity log and force a full refresh.
+        # Clear the activity log (both the visible widget and the backing buffer used by dump).
         self.query_one("#activity-log", RichLog).clear()
+        self._log_buffer.clear()
         self._stats_fingerprint = ()
         self._categories_fingerprint = ()
         self._refresh_stats(active_conns)
@@ -2067,15 +2096,17 @@ class ProxyApp(App):
         try:
             with open(path, "w", encoding="utf-8") as fh:
                 now = time.strftime("%Y-%m-%d %H:%M:%S")
+                active = self.tracker.active_connections
+                total_sent = self.tracker.total_bytes_sent + sum(c.bytes_sent for c in active)
+                total_recv = self.tracker.total_bytes_recv + sum(c.bytes_recv for c in active)
                 fh.write(f"# SOCKS5 Proxy snapshot — {now}\n")
                 fh.write(f"# Listening on {self.proxy_host}:{self.proxy_port}\n")
                 fh.write(f"# Total connections: {self.tracker.total_connections}"
                          f"  Denied: {self.tracker.total_denied}"
-                         f"  ↑ {format_bytes(self.tracker.total_bytes_sent)}"
-                         f"  ↓ {format_bytes(self.tracker.total_bytes_recv)}\n\n")
+                         f"  ↑ {format_bytes(total_sent)}"
+                         f"  ↓ {format_bytes(total_recv)}\n\n")
 
                 # Active connections
-                active = self.tracker.active_connections
                 fh.write(f"## Active connections ({len(active)})\n")
                 fh.write(f"{'ID':<5} {'Status':<12} {'Category':<18} {'Target':<45}"
                          f" {'Sent':<10} {'Recv':<10} Duration\n")
@@ -2149,6 +2180,16 @@ class ProxyApp(App):
                 f"from {self.rules_file.name} [mode: {self.filter_engine.mode.value}]",
                 force=True
             )
+            # Re-apply throttle rules to active connections so reload takes effect immediately.
+            if self._server:
+                for conn in self.tracker.active_connections:
+                    effective = self.throttle_engine.match(conn.target_host, conn.category)
+                    self._server.set_conn_throttle(
+                        conn.id,
+                        effective.download_bps if effective else None,
+                        effective.upload_bps   if effective else None,
+                    )
+
             # Force immediate categories panel refresh (bypass 3-tick throttle).
             self._cat_tick = 3
         except OSError as exc:

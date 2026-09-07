@@ -33,6 +33,8 @@ export ALL_PROXY=socks5h://127.0.0.1:1080
 The `h` in `socks5h://` means the same thing as the Firefox checkbox — DNS goes through
 sockLight, not your local resolver.
 
+For tools that don't support SOCKS5 at all (`pip`, `npm`), see [pip, npm and HTTP-only tools](howto-http-bridge.md).
+
 **Podman container:**
 ```bash
 podman run --rm -it \

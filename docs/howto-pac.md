@@ -61,4 +61,4 @@ This way the browser tunnels internal traffic through SSH while blocking ad/trac
 | Updates | re-export + browser restart | re-export + privoxy reload |
 | pip / npm / CLI tools | no | yes (via HTTP_PROXY) |
 
-Use `save privoxy` if you need to filter non-browser tools. See [howto-categories.md § Export to Privoxy](howto-categories.md#7-export-to-privoxy).
+Use `save privoxy` if you need to filter non-browser tools. To also bridge HTTP-only tools (`pip`, `npm`) through sockLight while it is running, see [pip, npm and HTTP-only tools](howto-http-bridge.md).

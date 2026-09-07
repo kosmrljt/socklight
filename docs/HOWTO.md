@@ -10,3 +10,4 @@ Practical step-by-step guides for common tasks. For command syntax see [COMMANDS
 | [Simulate slow network](howto-network.md) | Test app behaviour under limited bandwidth or high latency |
 | [Block ads & trackers](howto-categories.md) | Block entire categories of domains with a single command |
 | [Browser via PAC file](howto-pac.md) | Export rules to a PAC file for direct browser use |
+| [pip, npm and HTTP-only tools](howto-http-bridge.md) | Bridge HTTP proxy → SOCKS5 so tools that don't support SOCKS5 work with sockLight |

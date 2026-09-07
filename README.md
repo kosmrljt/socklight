@@ -10,7 +10,7 @@ Point your containers or tools at it and see every outbound connection in real t
 ## Why
 
 - **No certificate installation, no HTTPS decryption.** sockLight sees where a connection goes and how much moves through it — never the payload. Works with any app, container, or CLI tool out of the box: no custom CA, no per-app trust store, no certificate pinning failures.
-- **Works directly with any SOCKS5h client.** `curl`, `wget`, Firefox, Podman/Docker containers — set `ALL_PROXY=socks5h://...` and you're done. Tools that only speak HTTP proxy (`pip`, `npm`, Claude Code, most AI agents) need a one-line Privoxy bridge — see [Works well with dev-sandbox](#works-well-with-dev-sandbox).
+- **Works directly with any SOCKS5h client.** `curl`, `wget`, Firefox, Podman/Docker containers — set `ALL_PROXY=socks5h://...` and you're done. Tools that only speak HTTP proxy (`pip`, `npm`, Claude Code, most AI agents) need a one-line Privoxy bridge — see [pip, npm and HTTP-only tools](docs/howto-http-bridge.md).
 - **Hostnames, not IPs.** Because apps route DNS through the proxy (`socks5h://`), you see `analytics.google.com` in the dashboard, not `142.250.74.100`.
 - **Runs as a normal user.** No root, no firewall rules, no system-wide changes. Start it, point your app at it, stop it.
 - **Block and throttle without restarting.** Rules take effect on active connections immediately — no app restart, no reconnect.
@@ -118,6 +118,7 @@ Y (key)              copy hostname to clipboard
 save                 save rules to --rules-file
 save privoxy         export Privoxy .action + config snippet
 save pac             export PAC file for browser proxy auto-config
+save adblock         export Adblock Plus / uBlock Origin filter list
 dump <path>          snapshot of all connections + log
 ```
 

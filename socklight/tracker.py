@@ -247,6 +247,11 @@ class ConnectionTracker:
 
     # -- Internal --
 
+    def clear_history(self) -> None:
+        """Discard all closed-connection history (used by session reset)."""
+        self._history.clear()
+        self.structure_version += 1
+
     def _add_to_history(self, conn: ConnectionRecord) -> None:
         """Move a connection to the history buffer."""
         self._history.append(conn)  # deque evicts oldest automatically via maxlen

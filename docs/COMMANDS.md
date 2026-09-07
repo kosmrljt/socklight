@@ -71,6 +71,7 @@ loglevel <level> Filter activity log: all / connections / denied / errors / none
 save                    write current rules to --rules-file
 save privoxy [path]     export Privoxy .action + .conf.snippet
 save pac [path]         export PAC file for browser proxy auto-config
+save adblock [path]     export Adblock Plus / uBlock Origin filter list
 reload                  reload rules file from disk
 ```
 

@@ -67,3 +67,5 @@ save privoxy rules/privoxy
 ```
 
 Generates `rules/privoxy.action` and `rules/privoxy.conf.snippet`. The action file contains `+block{}` sections for each blocked category's patterns. Import into Privoxy for persistent filtering without running sockLight.
+
+If you are also using Privoxy as a live HTTP→SOCKS5 bridge (so that `pip`, `npm`, and other HTTP-only tools go through sockLight), see [pip, npm and HTTP-only tools](howto-http-bridge.md).
