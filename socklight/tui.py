@@ -273,11 +273,7 @@ class _ConnectionsTable(DataTable):
     """DataTable that suppresses the mouse-hover highlight on the header row."""
 
     def _on_mouse_move(self, event: events.MouseMove) -> None:
-        meta = event.style.meta
-        if meta and meta.get("row") == -1:   # header row → no hover effect
-            self._set_hover_cursor(False)
-            return
-        super()._on_mouse_move(event)
+        self._set_hover_cursor(False)
 
 
 # ---------------------------------------------------------------------------
@@ -391,8 +387,13 @@ class ProxyApp(App):
     DataTable > .datatable--hover {
         background: transparent;
     }
-    DataTable > .datatable--header-hover {
+    #connections-table > .datatable--header-hover {
         background: $panel;
+        color: $foreground;
+    }
+    #connections-table > .datatable--header-cursor {
+        background: $panel;
+        color: $foreground;
     }
     Static:hover {
         background: transparent;
@@ -515,7 +516,7 @@ class ProxyApp(App):
         with Horizontal(id="main-area"):
             with Vertical(id="left-panel"):
                 yield Static(" Connections", classes="section-title")
-                yield _ConnectionsTable(id="connections-table", cursor_type="row")
+                yield _ConnectionsTable(id="connections-table", cursor_type="row", cursor_foreground_priority="renderable")
                 yield SplitHandle("connections-table", "activity-log", label="Activity Log")
                 yield RichLog(id="activity-log", highlight=True, markup=True, max_lines=200)
 
@@ -943,6 +944,13 @@ class ProxyApp(App):
             self._display_order = [cid for cid in self._display_order if cid not in gone_set]
 
         # ── 4. Sync table visibility and update cells ─────────────────────
+        # Track whether cursor needs restoration: only when the selected row or a
+        # row above it is removed (those shift cursor_row index).
+        sel_id           = self._selected_conn_id()
+        sel_cursor_row   = table.cursor_row   # index before any removals this tick
+        removals_above   = 0                  # rows removed at index ≤ effective cursor
+        need_restore     = False
+
         for cid in self._display_order:
             conn = all_conns.get(cid)
             if conn is None:
@@ -951,17 +959,26 @@ class ProxyApp(App):
             is_shown    = cid in self._in_table
 
             if should_show and not is_shown:
-                # New row appended at the bottom — does not shift existing row indices,
-                # so cursor position is unaffected and no restore is needed.
+                # New row appended at the bottom — does not shift existing row indices.
                 self._table_add_row(table, conn, throttle_v, server)
                 self._in_table.add(cid)
                 self._last_statuses[cid] = conn.status
             elif not should_show and is_shown:
-                # Row removed — existing indices above may shift, cursor restore needed.
-                if not struct_changed:
-                    saved_id            = self._selected_conn_id()
-                    saved_visual_offset = table.cursor_row - table.scroll_y
-                    struct_changed      = True
+                row_idx = None
+                try:
+                    row_idx = table.get_row_index(str(cid))
+                except Exception:
+                    pass
+                effective_cursor = sel_cursor_row - removals_above
+                if row_idx is not None:
+                    if row_idx <= effective_cursor or cid == sel_id:
+                        if not struct_changed:
+                            saved_id            = sel_id
+                            saved_visual_offset = table.cursor_row - table.scroll_y
+                            struct_changed      = True
+                        need_restore = True
+                    if row_idx <= effective_cursor:
+                        removals_above += 1
                 try:
                     table.remove_row(str(cid))
                 except Exception:
@@ -973,8 +990,8 @@ class ProxyApp(App):
                     self._last_statuses[cid] = conn.status
                     self._table_update_row_style(table, conn, throttle_v, server)
 
-        # Restore cursor after any structural change so it stays on the same connection.
-        if struct_changed:
+        # Restore cursor only when the selected row or a row above it was removed.
+        if need_restore:
             self._table_restore_cursor(table, saved_id, saved_visual_offset)
 
         # ── 5. Throttle column update ─────────────────────────────────────
