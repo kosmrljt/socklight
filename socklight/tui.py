@@ -1958,8 +1958,10 @@ class ProxyApp(App):
         self._table_restore_cursor(table, saved_id, saved_visual_offset)
         self.tracker.total_connections = len(active_conns)
         self.tracker.total_denied = 0
-        self.tracker.total_bytes_sent = 0
-        self.tracker.total_bytes_recv = 0
+        # Offset by the bytes already accumulated by still-active connections so
+        # the traffic counter starts at zero rather than showing pre-reset bytes.
+        self.tracker.total_bytes_sent = -sum(c.bytes_sent for c in active_conns)
+        self.tracker.total_bytes_recv = -sum(c.bytes_recv for c in active_conns)
 
         # Reset cumulative category counts to reflect only active connections.
         self._cat_cumulative.clear()
