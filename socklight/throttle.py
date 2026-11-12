@@ -48,6 +48,8 @@ def parse_speed(s: str) -> int:
         return int(float(s[:-1]) * 1_000_000)
     if s.endswith("k"):
         return int(float(s[:-1]) * 1_000)
+    if s.endswith("b"):
+        return int(float(s[:-1]))
     return int(s)
 
 

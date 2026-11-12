@@ -1464,6 +1464,26 @@ class ProxyApp(App):
         else:
             self.notify(f"Unknown command: '{cmd}'.  Press ? for help.", severity="warning")
 
+    # ---- binding guard ----
+
+    # Single-letter bindings that must not fire while the command input is focused
+    # (typing 'k' in "200k" must not trigger kill_selected, etc.)
+    _INPUT_BLOCKED_ACTIONS = frozenset({
+        "graceful_quit", "info_selected", "kill_selected", "deny_selected",
+        "allow_selected", "remove_rule_selected", "mark_selected",
+        "throttle_selected", "toggle_history", "clear_log", "copy_target",
+        "log_resume", "show_help", "show_cats", "soft_reset",
+    })
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action in self._INPUT_BLOCKED_ACTIONS:
+            try:
+                if self.query_one("#command-input", Input).has_focus:
+                    return False
+            except Exception:
+                pass
+        return True
+
     # ---- actions (key bindings) ----
 
     def action_filter_scroll_up(self)   -> None:
